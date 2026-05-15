@@ -1,0 +1,51 @@
+{
+  "name": "@pubwave/cli",
+  "version": "0.1.0",
+  "description": "Composable CLI toolkit for language, AI model, local model, and mobile app setup flows.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "pubwave-cli": "./dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "example:techbrief-like": "tsx examples/techbrief-like.ts",
+    "example:with-custom-step": "tsx examples/with-custom-step.ts",
+    "example:with-stages": "tsx examples/with-stages.ts",
+    "example:with-managed-config": "tsx examples/with-managed-config.ts",
+    "test": "npm run check",
+    "prepack": "npm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/figlet": "^1.7.0",
+    "@types/node": "^22.15.21",
+    "@types/react": "^19.2.14",
+    "ink": "^6.8.0",
+    "react": "^19.2.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "figlet": "^1.11.0"
+  },
+  "peerDependencies": {
+    "ink": "^6.8.0",
+    "react": "^19.2.6"
+  }
+}
