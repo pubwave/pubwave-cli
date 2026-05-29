@@ -77,7 +77,7 @@ export function MobileDeviceSelectView(props: MobileDeviceSelectViewProps): Reac
     return () => {
       mounted = false;
     };
-  }, [exit, phase, props.flutter, props.options, result, selectedIds]);
+  }, [exit, phase, props.context, props.flutter, props.options, result, selectedIds]);
 
   if (phase === "installing") {
     return (

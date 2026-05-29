@@ -1,18 +1,30 @@
-import { spawn } from "node:child_process";
-import { runCommand, runCommandAsync, runInteractiveCommand } from "../../../node/process.js";
+import { runCommand, runCommandAsync } from "../../../node/process.js";
 import type { LocalModelInstallProgressStage, LocalModelInstallResult } from "../types.js";
-import { isOllamaAvailable, isOllamaModelInstalled } from "./availability.js";
-import { delay, installCommandForPlatform } from "./platform.js";
+import { isOllamaAvailable, isOllamaModelInstalledAsync } from "./availability.js";
+import { createOllamaRuntimeManager, resolveOllamaExecutable } from "./runtime/index.js";
 import { verifyOllamaModelReady } from "./verify.js";
 
 export async function installOllamaModel(
   model: string,
   onProgress?: (stage: LocalModelInstallProgressStage, model: string) => void,
   onOutput?: (line: string, stream: "stdout" | "stderr") => void,
-  options?: { autoInstallRuntime?: boolean; autoStartRuntime?: boolean }
+  options?: {
+    autoInstallRuntime?: boolean;
+    autoStartRuntime?: boolean;
+    locale?: string;
+  }
 ): Promise<LocalModelInstallResult> {
   onProgress?.("check-runtime", model);
-  if (!isOllamaAvailable()) {
+  const manager = createOllamaRuntimeManager();
+  if (!manager) {
+    return {
+      ok: false,
+      detail: `Automatic Ollama setup is not supported on ${process.platform}.`
+    };
+  }
+
+  let runtime = await manager.detect();
+  if (!runtime.installed) {
     if (!options?.autoInstallRuntime) {
       return {
         ok: false,
@@ -20,23 +32,33 @@ export async function installOllamaModel(
       };
     }
 
-    onProgress?.("install-runtime", model);
-    const installResult = installOllamaRuntime();
+    const installResult = await manager.install({
+      onOutput,
+      onInstallStarted: () => onProgress?.("install-runtime", model)
+    });
     if (!installResult.ok) {
       return installResult;
     }
+    runtime = await manager.detect();
   }
 
   if (options?.autoStartRuntime !== false) {
     onProgress?.("start-runtime", model);
-    const runtimeResult = await ensureOllamaRuntimeStarted();
-    if (!runtimeResult.ok) {
-      return runtimeResult;
+    if (!runtime.reachable) {
+      const startResult = await manager.start({
+        onOutput
+      });
+      if (!startResult.ok) {
+        return startResult;
+      }
     }
+    onProgress?.("wait-runtime", model);
+    const readyResult = await manager.waitUntilReady();
+    if (!readyResult.ok) return readyResult;
   }
 
   onProgress?.("check-model", model);
-  if (isOllamaModelInstalled(model)) {
+  if (await isOllamaModelInstalledAsync(model)) {
     return {
       ok: true,
       detail: `${model} is already installed in Ollama.`
@@ -44,15 +66,24 @@ export async function installOllamaModel(
   }
 
   onProgress?.("pull-model", model);
-  const result = await runCommandAsync("ollama", ["pull", model], undefined, {
+  const executable = resolveOllamaExecutable();
+  if (!executable) {
+    return {
+      ok: false,
+      detail: "Ollama is installed, but the ollama command is not available yet. Restart the terminal, then retry."
+    };
+  }
+
+  const result = await runCommandAsync(executable, ["pull", model], undefined, {
     onStdout: (chunk) => onOutput?.(chunk, "stdout"),
     onStderr: (chunk) => onOutput?.(chunk, "stderr")
   });
 
   if (!result.ok) {
+    const detail = extractOllamaPullFailureDetail(result.stderr || result.stdout);
     return {
       ok: false,
-      detail: result.stderr || result.stdout || `Failed to install ${model}.`
+      detail: detail || `Failed to install ${model}.`
     };
   }
 
@@ -71,62 +102,50 @@ export async function installOllamaModel(
   };
 }
 
-export function installOllamaRuntime(): LocalModelInstallResult {
-  const installCommand = installCommandForPlatform();
-  if (!installCommand) {
-    return {
-      ok: false,
-      detail: `Automatic Ollama install is not supported on ${process.platform}.`
-    };
+function extractOllamaPullFailureDetail(rawText: string): string {
+  const normalized = rawText
+    .replace(/\u001B\[[0-9;?]*G/g, " ")
+    .replace(/\u001B\[[0-9;?]*K/g, " ")
+    .replace(/\[[0-9;?]*[ -/]*[@-~]/g, " ")
+    .replace(/[\u2800-\u28ff]/g, " ")
+    .replace(/\r\n|\n|\r/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const errorIndex = normalized.search(/\berror:/i);
+  if (errorIndex >= 0) {
+    return normalized.slice(errorIndex).trim();
   }
 
-  const result = process.stdin.isTTY && process.stdout.isTTY
-    ? runInteractiveCommand(installCommand.command, installCommand.args)
-    : runCommand(installCommand.command, installCommand.args);
+  const lines = rawText
+    .replace(/\u001B\[[0-9;?]*G/g, "\r")
+    .replace(/\u001B\[[0-9;?]*K/g, "")
+    .replace(/\[[0-9;?]*[ -/]*[@-~]/g, "")
+    .split(/\r\n|\n|\r/g)
+    .map((line) => line.replace(/[\u2800-\u28ff]/g, "").trim())
+    .filter((line) => line.length > 0 && !line.toLowerCase().startsWith("pulling "));
 
-  if (!result.ok) {
-    return {
-      ok: false,
-      detail: result.stderr || result.stdout || "Automatic Ollama install failed."
-    };
-  }
-
-  return isOllamaAvailable()
-    ? { ok: true, detail: "Ollama installed." }
-    : { ok: false, detail: "Ollama installer completed, but ollama is not available on PATH yet. Restart the terminal, then retry." };
+  return lines.at(-1) ?? "";
 }
 
-export async function ensureOllamaRuntimeStarted(): Promise<LocalModelInstallResult> {
-  const probe = await runCommandAsync("ollama", ["list"]);
-  if (probe.ok) {
-    return {
-      ok: true,
-      detail: "Ollama runtime is ready."
-    };
+export async function installOllamaRuntime(
+  onOutput?: (line: string, stream: "stdout" | "stderr") => void
+): Promise<LocalModelInstallResult> {
+  const manager = createOllamaRuntimeManager();
+  if (!manager) {
+    return { ok: false, detail: `Automatic Ollama install is not supported on ${process.platform}.` };
   }
+  return manager.install({ onOutput });
+}
 
-  const child = spawn("ollama", ["serve"], {
-    detached: true,
-    stdio: "ignore",
-    env: process.env
-  });
-  child.unref();
-
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    await delay(300);
-    const retry = await runCommandAsync("ollama", ["list"]);
-    if (retry.ok) {
-      return {
-        ok: true,
-        detail: "Ollama runtime started."
-      };
-    }
+export async function ensureOllamaRuntimeStarted(
+  onOutput?: (line: string) => void
+): Promise<LocalModelInstallResult> {
+  const manager = createOllamaRuntimeManager();
+  if (!manager) {
+    return { ok: false, detail: `Automatic Ollama start is not supported on ${process.platform}.` };
   }
-
-  return {
-    ok: false,
-    detail: "Ollama is installed, but the local runtime did not become ready."
-  };
+  return manager.start({ onOutput: (line) => onOutput?.(line) });
 }
 
 export function uninstallOllamaModel(model: string): LocalModelInstallResult {
@@ -137,7 +156,34 @@ export function uninstallOllamaModel(model: string): LocalModelInstallResult {
     };
   }
 
-  const result = runCommand("ollama", ["rm", model]);
+  const executable = resolveOllamaExecutable();
+  if (!executable) {
+    return {
+      ok: false,
+      detail: "Ollama is not installed or is not available on PATH."
+    };
+  }
+
+  const result = runCommand(executable, ["rm", model]);
+  return {
+    ok: result.ok,
+    detail: result.ok ? `${model} removed.` : (result.stderr || result.stdout || `Failed to remove ${model}.`)
+  };
+}
+
+// Async variant for the interactive wizard so the Ink event loop doesn't stall
+// during `ollama rm`. The synchronous version above is kept for non-interactive
+// CLI commands and the public API.
+export async function uninstallOllamaModelAsync(model: string): Promise<LocalModelInstallResult> {
+  const executable = resolveOllamaExecutable();
+  if (!executable) {
+    return {
+      ok: false,
+      detail: "Ollama is not installed or is not available on PATH."
+    };
+  }
+
+  const result = await runCommandAsync(executable, ["rm", model]);
   return {
     ok: result.ok,
     detail: result.ok ? `${model} removed.` : (result.stderr || result.stdout || `Failed to remove ${model}.`)

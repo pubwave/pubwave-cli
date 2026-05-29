@@ -52,6 +52,15 @@ export async function runFlutterMobile(
   await input.callbacks?.onStep?.("flutter");
   const tool = await ensureFlutterTool(featureConfig, input.callbacks?.onFlutterProgress);
   const activeFlutterCommand = input.flutterCommand ?? tool.command;
+  if (!tool.ok) {
+    steps.push({
+      label: "flutter",
+      ok: false,
+      detail: tool.detail || "Flutter is not available."
+    });
+    return { ok: false, steps, deviceResults: [] };
+  }
+
   const flutterVersion = runCommand(activeFlutterCommand, ["--version"], mobileDir);
   steps.push({
     label: "flutter",

@@ -32,6 +32,7 @@ interface PhaseRouterProps {
   appName: string;
   context: CliCommandContext;
   initialConfig: PubwaveCliConfig;
+  projectConfig: unknown;
   phase: SetupPhase;
   state: SetupState;
   locale: WizardLocale;
@@ -64,7 +65,9 @@ export function SetupPhaseRouter(props: PhaseRouterProps): React.ReactElement {
     return (
       <SetupCompletionView
         context={props.context}
-        config={stateToConfig(props.initialConfig, props.state, props.context)}
+        config={stateToConfig(props.initialConfig, props.state, props.context, props.projectConfig)}
+        initialConfig={props.initialConfig}
+        projectConfig={props.projectConfig}
         compactMode={props.compactMode}
         locale={props.locale}
         mobileNotice={props.mobileNotice}

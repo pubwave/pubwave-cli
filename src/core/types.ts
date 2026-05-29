@@ -1,6 +1,6 @@
-import type { CloudModelProvider, ModelChoice } from "../features/models/types.js";
+import type { CloudModelProvider, LocalModelRuntime, ModelChoice } from "../features/models/types.js";
 import type { MobileFeatureConfig } from "../features/mobile/types.js";
-import type { CustomSetupStep } from "../features/setup/types.js";
+import type { CustomSetupStep, SetupState } from "../features/setup/types.js";
 import type { SetupStage } from "../features/setup/stage-types.js";
 import type React from "react";
 
@@ -58,6 +58,20 @@ export interface SetupFeatureConfig<TProjectConfig = PubwaveCliConfig> {
   languages?: ModelChoice[];
   customSteps?: CustomSetupStep<TProjectConfig>[];
   stages?: SetupStage<TProjectConfig>[];
+  shouldRequireAiSetup?: (ctx: SetupRequirementContext<TProjectConfig>) => boolean;
+  /**
+   * Extra rows shown in the config summary, used by BOTH the saved view and the
+   * post-setup completion screen, so a host app declares its full config once
+   * and both screens stay identical. Same shape as the saved view's
+   * `additionalRows` (which, when provided, overrides this for the saved view).
+   */
+  configRows?: SavedViewRow[] | ((ctx: SavedViewContext<TProjectConfig>) => SavedViewRow[]);
+}
+
+export interface SetupRequirementContext<TProjectConfig = PubwaveCliConfig> {
+  state: SetupState;
+  projectConfig: TProjectConfig;
+  cliConfig: PubwaveCliConfig;
 }
 
 export interface CloudModelFeatureConfig {
@@ -68,7 +82,7 @@ export interface CloudModelFeatureConfig {
 export interface LocalModelFeatureConfig {
   enabled?: boolean;
   choices?: ModelChoice[];
-  runtime?: "ollama";
+  runtime?: LocalModelRuntime;
   autoInstallRuntime?: boolean;
   autoStartRuntime?: boolean;
 }
@@ -172,6 +186,8 @@ export interface NormalizedFeatureConfig<TProjectConfig = PubwaveCliConfig> {
     languages: ModelChoice[];
     customSteps: CustomSetupStep<TProjectConfig>[];
     stages: SetupStage<TProjectConfig>[];
+    shouldRequireAiSetup: (ctx: SetupRequirementContext<TProjectConfig>) => boolean;
+    configRows: SavedViewRow[] | ((ctx: SavedViewContext<TProjectConfig>) => SavedViewRow[]);
   };
   cloudModel: {
     enabled: boolean;
@@ -180,7 +196,7 @@ export interface NormalizedFeatureConfig<TProjectConfig = PubwaveCliConfig> {
   localModel: {
     enabled: boolean;
     choices: ModelChoice[];
-    runtime: "ollama";
+    runtime: LocalModelRuntime;
     autoInstallRuntime: boolean;
     autoStartRuntime: boolean;
   };

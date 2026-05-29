@@ -12,6 +12,7 @@ import {
 } from "../../../shared/i18n/wizard/index.js";
 import type {
   CustomSetupStep,
+  ErasedProjectConfig,
   SetupChoiceGroup,
   SetupState,
   SetupStep,
@@ -21,11 +22,11 @@ import type {
 } from "../types.js";
 
 export function buildSteps(
-  context: CliCommandContext,
+  context: CliCommandContext<ErasedProjectConfig>,
   state: SetupState,
   locale: WizardLocale,
   localModelChoices: ModelChoice[],
-  projectConfig: unknown,
+  projectConfig: ErasedProjectConfig,
   cliConfig: PubwaveCliConfig
 ): SetupStep[] {
   const steps: SetupStep[] = [
@@ -37,47 +38,49 @@ export function buildSteps(
     }
   ];
 
-  steps.push({
-    id: "modelSource",
-    title: wizardMessage(locale, "modelSourceTitle"),
-    hint: wizardMessage(locale, "modelSourceHint"),
-    choices: localizedModelSourceChoices(locale)
-  });
+  if (shouldRequireAiSetup(context, state, projectConfig, cliConfig)) {
+    steps.push({
+      id: "modelSource",
+      title: wizardMessage(locale, "modelSourceTitle"),
+      hint: wizardMessage(locale, "modelSourceHint"),
+      choices: localizedModelSourceChoices(locale)
+    });
 
-  if (state.modelSource === "cloud") {
-    steps.push({
-      id: "provider",
-      title: wizardMessage(locale, "providerTitle"),
-      hint: wizardMessage(locale, "providerHint"),
-      choices: localizedCloudProviderChoices(locale, context.features.cloudModel.providers)
-    });
-    steps.push({
-      id: "model",
-      title: wizardMessage(locale, "cloudModelTitle"),
-      hint: wizardMessage(locale, "cloudModelHint"),
-      kind: "choice",
-      choices: localizedCloudModelChoices(locale, context.features.cloudModel.providers, state.provider),
-      inputValueKey: "model",
-      ...(state.cloudModelInputMode ? { description: wizardMessage(locale, "customCloudModelDescription") } : {})
-    });
-    steps.push({
-      id: "apiKey",
-      kind: "input",
-      title: wizardMessage(locale, "apiKeyTitle"),
-      hint: wizardMessage(locale, "apiKeyHint"),
-      choices: [],
-      inputMask: false,
-      inputValueKey: "apiKey",
-      description: wizardMessage(locale, "apiKeyDescription")
-    });
-  } else {
-    steps.push({
-      id: "model",
-      title: wizardMessage(locale, "localModelTitle"),
-      hint: wizardMessage(locale, "localModelHint"),
-      choices: localizedLocalModelChoices(locale, localModelChoices),
-      choiceGroups: buildLocalModelChoiceGroups(locale, localModelChoices)
-    });
+    if (state.modelSource === "cloud") {
+      steps.push({
+        id: "provider",
+        title: wizardMessage(locale, "providerTitle"),
+        hint: wizardMessage(locale, "providerHint"),
+        choices: localizedCloudProviderChoices(locale, context.features.cloudModel.providers)
+      });
+      steps.push({
+        id: "model",
+        title: wizardMessage(locale, "cloudModelTitle"),
+        hint: wizardMessage(locale, "cloudModelHint"),
+        kind: "choice",
+        choices: localizedCloudModelChoices(locale, context.features.cloudModel.providers, state.provider),
+        inputValueKey: "model",
+        ...(state.cloudModelInputMode ? { description: wizardMessage(locale, "customCloudModelDescription") } : {})
+      });
+      steps.push({
+        id: "apiKey",
+        kind: "input",
+        title: wizardMessage(locale, "apiKeyTitle"),
+        hint: wizardMessage(locale, "apiKeyHint"),
+        choices: [],
+        inputMask: false,
+        inputValueKey: "apiKey",
+        description: wizardMessage(locale, "apiKeyDescription")
+      });
+    } else {
+      steps.push({
+        id: "model",
+        title: wizardMessage(locale, "localModelTitle"),
+        hint: wizardMessage(locale, "localModelHint"),
+        choices: localizedLocalModelChoices(locale, localModelChoices),
+        choiceGroups: buildLocalModelChoiceGroups(locale, localModelChoices)
+      });
+    }
   }
 
   if (context.features.mobile) {
@@ -92,23 +95,36 @@ export function buildSteps(
   return insertCustomSteps(steps, context, state, locale, projectConfig, cliConfig);
 }
 
+export function shouldRequireAiSetup(
+  context: CliCommandContext<ErasedProjectConfig>,
+  state: SetupState,
+  projectConfig: ErasedProjectConfig,
+  cliConfig: PubwaveCliConfig
+): boolean {
+  return context.features.setup.shouldRequireAiSetup({
+    state,
+    projectConfig,
+    cliConfig
+  });
+}
+
 function insertCustomSteps(
   steps: SetupStep[],
-  context: CliCommandContext,
+  context: CliCommandContext<ErasedProjectConfig>,
   state: SetupState,
   locale: WizardLocale,
-  projectConfig: unknown,
+  projectConfig: ErasedProjectConfig,
   cliConfig: PubwaveCliConfig
 ): SetupStep[] {
   const customSteps = context.features.setup.customSteps as
-    | CustomSetupStep<unknown>[]
+    | CustomSetupStep<ErasedProjectConfig>[]
     | undefined;
   if (!customSteps || customSteps.length === 0) {
     return steps;
   }
 
   const textContext: SetupTextContext = { locale, app: context.app };
-  const stepContext: SetupStepContext<unknown> = {
+  const stepContext: SetupStepContext<ErasedProjectConfig> = {
     ...textContext,
     projectConfig,
     cliConfig
@@ -125,7 +141,7 @@ function insertCustomSteps(
 
 function resolveInsertIndex(
   steps: SetupStep[],
-  customStep: CustomSetupStep<unknown>
+  customStep: CustomSetupStep<ErasedProjectConfig>
 ): number {
   if (customStep.insertAfter) {
     const idx = findStandardStepIndex(steps, customStep.insertAfter);
@@ -143,9 +159,9 @@ function findStandardStepIndex(steps: SetupStep[], id: StandardSetupStepId): num
 }
 
 function buildCustomStep(
-  customStep: CustomSetupStep<unknown>,
+  customStep: CustomSetupStep<ErasedProjectConfig>,
   textContext: SetupTextContext,
-  stepContext: SetupStepContext<unknown>
+  stepContext: SetupStepContext<ErasedProjectConfig>
 ): SetupStep {
   const title = typeof customStep.title === "function" ? customStep.title(textContext) : customStep.title;
   const hint = typeof customStep.hint === "function"

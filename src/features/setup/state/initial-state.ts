@@ -22,14 +22,24 @@ export function createInitialState(
     }
   }
 
+  const provider = modelSource === "local" ? "local" : config.ai?.provider ?? defaultProvider?.value ?? "openai";
+  const model = config.ai?.model ?? (modelSource === "local" ? defaultLocalModel?.value : defaultModel?.value) ?? "";
+  const cloudChoices = modelSource === "cloud"
+    ? (context.features.cloudModel.providers.find((p) => p.value === provider)?.models ?? [])
+    : [];
+  const cloudModelInputMode = modelSource === "cloud"
+    && model.length > 0
+    && !cloudChoices.some((m) => m.value === model);
+
   return {
     language,
     modelSource,
-    provider: modelSource === "local" ? "local" : config.ai?.provider ?? defaultProvider?.value ?? "openai",
-    model: config.ai?.model ?? (modelSource === "local" ? defaultLocalModel?.value : defaultModel?.value) ?? "",
-    cloudModelInputMode: false,
+    provider,
+    model,
+    cloudModelInputMode,
+    ...(cloudModelInputMode && model.length > 0 ? { customModelDraft: model } : {}),
     apiKey: modelSource === "local" ? "" : config.ai?.apiKey ?? "",
-    mobileInstall: config.mobile?.enabled === false ? "skip" : "install",
+    mobileInstall: config.mobile?.enabled === true ? "install" : "skip",
     customValues
   };
 }

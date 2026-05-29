@@ -29,6 +29,17 @@ export async function ensureFlutterTool(
 ): Promise<FlutterTool> {
   const configuredCommand = featureConfig.flutterCommand ?? "flutter";
   const managedCommand = managedFlutterCommand(featureConfig);
+  const configuredCheck = async (): Promise<FlutterTool> => {
+    const check = await runCommandAsync(configuredCommand, ["--version"]);
+    return {
+      ok: check.ok,
+      command: configuredCommand,
+      detail: check.ok
+        ? firstLine(check.stdout || check.stderr, "Flutter is available.")
+        : (check.stderr || "Flutter is not available. Enable mobile.flutter.autoInstallSdk or install Flutter.")
+    };
+  };
+
   if (existsSync(managedCommand)) {
     const managedCheck = await runCommandAsync(managedCommand, ["--version"]);
     if (managedCheck.ok) {
@@ -45,31 +56,42 @@ export async function ensureFlutterTool(
     try {
       await installManagedFlutter(featureConfig, onProgress);
       const installedCheck = await runCommandAsync(managedCommand, ["--version"]);
-      await onProgress?.({ stage: "ready" });
-      return {
-        ok: installedCheck.ok,
-        command: managedCommand,
-        detail: installedCheck.ok
-          ? firstLine(installedCheck.stdout || installedCheck.stderr, "Managed Flutter installed.")
-          : (installedCheck.stderr || "Managed Flutter install completed, but Flutter is not ready.")
-      };
-    } catch (error) {
+      if (installedCheck.ok) {
+        await onProgress?.({ stage: "ready" });
+        return {
+          ok: true,
+          command: managedCommand,
+          detail: firstLine(installedCheck.stdout || installedCheck.stderr, "Managed Flutter installed.")
+        };
+      }
+
+      const fallback = await configuredCheck();
+      if (fallback.ok) {
+        await onProgress?.({ stage: "ready" });
+        return fallback;
+      }
+
       return {
         ok: false,
-        command: managedCommand,
+        command: configuredCommand,
+        detail: installedCheck.stderr || fallback.detail || "Managed Flutter install completed, but Flutter is not ready."
+      };
+    } catch (error) {
+      const fallback = await configuredCheck();
+      if (fallback.ok) {
+        await onProgress?.({ stage: "ready" });
+        return fallback;
+      }
+
+      return {
+        ok: false,
+        command: configuredCommand,
         detail: error instanceof Error ? error.message : "Managed Flutter install failed."
       };
     }
   }
 
-  const configuredCheck = await runCommandAsync(configuredCommand, ["--version"]);
-  return {
-    ok: configuredCheck.ok,
-    command: configuredCommand,
-    detail: configuredCheck.ok
-      ? firstLine(configuredCheck.stdout || configuredCheck.stderr, "Flutter is available.")
-      : (configuredCheck.stderr || "Flutter is not available. Enable mobile.flutter.autoInstallSdk or install Flutter.")
-  };
+  return await configuredCheck();
 }
 
 async function installManagedFlutter(
@@ -99,17 +121,34 @@ async function installManagedFlutter(
   const extractDir = path.join(tempRoot, "extract");
   const installRoot = managedFlutterRoot(featureConfig);
 
+  await mkdir(managedRuntimeRoot(featureConfig), { recursive: true });
+  await mkdir(flutterDownloadsRoot(featureConfig), { recursive: true });
+  await mkdir(path.dirname(installRoot), { recursive: true });
+
   try {
-    await mkdir(managedRuntimeRoot(featureConfig), { recursive: true });
-    await mkdir(flutterDownloadsRoot(featureConfig), { recursive: true });
-    await mkdir(path.dirname(installRoot), { recursive: true });
-    await mkdir(extractDir, { recursive: true });
-    await onProgress?.({ stage: "download", receivedBytes: 0 });
-    await downloadArchive(archiveUrl, archivePath, onProgress);
-    await rm(installRoot, { recursive: true, force: true });
-    await onProgress?.({ stage: "extract" });
-    await extractArchive(archivePath, extractDir);
-    await rename(path.join(extractDir, "flutter"), installRoot);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const attemptExtractDir = path.join(extractDir, String(attempt));
+      try {
+        await mkdir(attemptExtractDir, { recursive: true });
+        await onProgress?.({ stage: "download", receivedBytes: 0 });
+        await downloadArchive(archiveUrl, archivePath, onProgress);
+        await rm(installRoot, { recursive: true, force: true });
+        await onProgress?.({ stage: "extract" });
+        await extractArchive(archivePath, attemptExtractDir);
+        await rename(path.join(attemptExtractDir, "flutter"), installRoot);
+        return;
+      } catch (error) {
+        await rm(attemptExtractDir, { recursive: true, force: true });
+        await rm(installRoot, { recursive: true, force: true });
+
+        if (attempt === 0) {
+          await rm(archivePath, { force: true });
+          continue;
+        }
+
+        throw error;
+      }
+    }
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -124,7 +163,7 @@ function managedFlutterCommand(featureConfig: FlutterMobileFeatureConfig): strin
 }
 
 function managedRuntimeRoot(featureConfig: FlutterMobileFeatureConfig): string {
-  return path.resolve(featureConfig.runtimeRoot ?? path.join(os.homedir(), ".pubwave-cli", "runtime"));
+  return path.resolve(featureConfig.runtimeRoot ?? path.join(os.homedir(), ".pubwave", "runtime"));
 }
 
 function flutterDownloadsRoot(featureConfig: FlutterMobileFeatureConfig): string {

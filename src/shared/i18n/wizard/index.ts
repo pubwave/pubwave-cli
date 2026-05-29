@@ -70,13 +70,6 @@ export function localizedMobileInstallChoices(locale: WizardLocale): ModelChoice
   ];
 }
 
-export function localizedMobilePlatformChoices(locale: WizardLocale): ModelChoice[] {
-  return [
-    { label: wizardMessage(locale, "mobilePlatformAndroid"), value: "android", description: wizardDescription(locale, "android") },
-    { label: wizardMessage(locale, "mobilePlatformIos"), value: "ios", description: wizardDescription(locale, "ios") }
-  ];
-}
-
 export function localizedCloudProviderChoices(locale: WizardLocale, providers: CloudModelProvider[]): ModelChoice[] {
   return providers.map(({ models: _models, ...provider }) => ({
     ...provider,

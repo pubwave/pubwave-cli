@@ -1,3 +1,4 @@
+import type { MobileInstallableDevice } from "../mobile/types.js";
 import type { ProgressLine } from "./types.js";
 
 export type ProgressColor = NonNullable<ProgressLine["color"]>;
@@ -25,7 +26,7 @@ export interface RichProgressApi {
   resetProgress(): void;
   appendProgress(text: string, color?: ProgressColor, completedText?: string): void;
   updateLastProgress(text: string, color?: ProgressColor, completedText?: string): void;
-  appendOutput(rawText: string, stream: "stdout" | "stderr"): void;
+  appendOutput(rawText: string, stream: "stdout" | "stderr", device?: MobileInstallableDevice): void;
   beginIndeterminate(label: string, color?: ProgressColor): IndeterminateHandle;
   beginCounted(label: string, total: number, color?: ProgressColor): CountedHandle;
   appendStatusCard(card: StatusCard): void;

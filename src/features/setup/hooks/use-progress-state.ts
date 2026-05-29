@@ -1,6 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 import type { DeviceRunResult, MobileInstallableDevice } from "../../mobile/types.js";
-import { mergeOutputLines, normalizeSetupOutputLines } from "../progress/output.js";
+import {
+  mergeOutputLines,
+  normalizeSetupOutputLines
+} from "../progress/output.js";
 import type {
   CountedHandle,
   IndeterminateHandle,

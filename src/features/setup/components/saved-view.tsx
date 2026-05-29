@@ -1,20 +1,20 @@
 import React, { useMemo, useState } from "react";
-import { Box, Text, useInput } from "ink";
+import { Text, useInput } from "ink";
 import type {
   CliCommandContext,
   PubwaveCliConfig,
   SavedViewContext,
   SavedViewOverrides
 } from "../../../core/types.js";
-import { KeyValueList, Panel } from "../../../ui/index.js";
 import {
   detectWizardLocale,
   isWizardLocale,
   wizardMessage,
   type WizardLocale
 } from "../../../shared/i18n/wizard/index.js";
-import { setupConfigItems } from "../presentation/config-items.js";
+import { resolveSavedViewRows, setupConfigItems } from "../presentation/config-items.js";
 import { SetupWizard } from "../wizard.js";
+import { SetupConfigSummary } from "./views/config-summary-view.js";
 
 export function SavedSetupView(props: {
   context: CliCommandContext;
@@ -30,17 +30,22 @@ export function SavedSetupView(props: {
   const [enterSetup, setEnterSetup] = useState(false);
   const [overrideElement, setOverrideElement] = useState<React.ReactElement | null>(null);
 
-  const savedViewCtx: SavedViewContext = {
-    context: props.context,
-    initialConfig: props.initialConfig,
-    projectConfig: props.projectConfig as PubwaveCliConfig
-  };
+  const savedViewCtx = useMemo<SavedViewContext>(
+    () => ({
+      context: props.context,
+      initialConfig: props.initialConfig,
+      projectConfig: props.projectConfig as PubwaveCliConfig
+    }),
+    [props.context, props.initialConfig, props.projectConfig]
+  );
 
-  const additionalRows = useMemo(() => {
-    const raw = props.overrides?.additionalRows;
-    if (!raw) return [];
-    return typeof raw === "function" ? raw(savedViewCtx) : raw;
-  }, [props.overrides, props.context, props.initialConfig, props.projectConfig]);
+  const additionalRows = useMemo(
+    () => resolveSavedViewRows(
+      props.overrides?.additionalRows ?? savedViewCtx.context.features.setup.configRows,
+      savedViewCtx
+    ),
+    [props.overrides, savedViewCtx]
+  );
 
   const items = useMemo(
     () => setupConfigItems(props.initialConfig, locale, Boolean(props.context.features.mobile), additionalRows),
@@ -68,15 +73,16 @@ export function SavedSetupView(props: {
   }
 
   return (
-    <Panel title={wizardMessage(locale, "setupComplete")} color="green">
-      <Text color="yellow">{wizardMessage(locale, "launchReadyHint")}</Text>
-      <Box marginTop={1} flexDirection="column">
-        <KeyValueList items={items} />
-      </Box>
-      <Box marginTop={1} flexDirection="column">
-        <Text color="yellow">{wizardMessage(locale, "launchReadyNav")}</Text>
-        <Text color="gray">{wizardMessage(locale, "launchSetupHint")}</Text>
-      </Box>
-    </Panel>
+    <SetupConfigSummary
+      title={wizardMessage(locale, "setupComplete")}
+      hint={wizardMessage(locale, "launchReadyHint")}
+      items={items}
+      footer={
+        <>
+          <Text color="yellow">{wizardMessage(locale, "launchReadyNav")}</Text>
+          <Text color="gray">{wizardMessage(locale, "launchSetupHint")}</Text>
+        </>
+      }
+    />
   );
 }

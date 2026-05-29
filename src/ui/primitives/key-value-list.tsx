@@ -9,14 +9,17 @@ export interface KeyValueItem {
 export function KeyValueList(props: { items: KeyValueItem[] }): React.ReactElement {
   return (
     <Box flexDirection="column">
-      {props.items.filter((item) => item.value !== undefined).map((item) => (
-        <Box key={item.label}>
-          <Box width={18}>
-            <Text color="gray">{item.label}</Text>
+      {props.items
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => item.value != null)
+        .map(({ item, index }) => (
+          <Box key={`${item.label}-${index}`}>
+            <Box width={18}>
+              <Text color="gray">{item.label}</Text>
+            </Box>
+            <Text>{String(item.value)}</Text>
           </Box>
-          <Text>{String(item.value)}</Text>
-        </Box>
-      ))}
+        ))}
     </Box>
   );
 }

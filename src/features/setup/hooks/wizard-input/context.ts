@@ -8,6 +8,7 @@ import type { MobileDeviceChoiceState, SetupPhase, SetupState, SetupStep } from 
 export interface WizardInputKey {
   return?: boolean;
   leftArrow?: boolean;
+  rightArrow?: boolean;
   upArrow?: boolean;
   downArrow?: boolean;
   escape?: boolean;
@@ -43,6 +44,7 @@ export interface WizardInputContext {
   prepareLocalModel: () => Promise<boolean>;
   saveAndExit: (override?: Partial<SetupState>) => Promise<void>;
   retryMobileInstall: () => Promise<void>;
+  skipMobileInstallAndContinue: () => Promise<void>;
   refreshLocalModelChoices: () => void;
   exit: () => void;
 }

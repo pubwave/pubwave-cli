@@ -1,7 +1,8 @@
+import { bannerRowCount } from "../../../ui/primitives/cli-banner.js";
+
 const MIN_SECTION_WIDTH = 56;
 const MAX_SECTION_WIDTH = 112;
 const SECTION_CHROME_WIDTH = 7;
-const LARGE_BANNER_MIN_WIDTH = 62;
 const ANSI_PATTERN = /\[[0-9;?]*[ -/]*[@-~]/g;
 
 export function wizardSectionWidth(columns: number): number {
@@ -15,22 +16,25 @@ export function wizardSectionWidth(columns: number): number {
 }
 
 export function wizardPanelHeight(rows: number): number {
-  return Math.max(14, rows - 2);
+  // Never claim more rows than the terminal has, or content scrolls off-screen
+  // and Ink can no longer clear stale frames (causing redraw smear on resize).
+  return Math.min(Math.max(14, rows - 2), Math.max(6, rows - 1));
 }
 
 export function wizardStepVisibleRowCount(input: {
   panelHeight: number;
   sectionWidth: number;
   compactMode: boolean;
+  bannerTitle: string;
   title: string;
   hint?: string;
   description?: string;
   navigationText: string;
 }): number {
-  const { panelHeight, sectionWidth, compactMode, title, hint, description, navigationText } = input;
+  const { panelHeight, sectionWidth, compactMode, bannerTitle, title, hint, description, navigationText } = input;
   const spacing = compactMode ? 0 : 1;
   const contentWidth = sectionContentWidth(sectionWidth);
-  const bannerRows = sectionWidth >= LARGE_BANNER_MIN_WIDTH ? 6 : 2;
+  const bannerRows = bannerRowCount(bannerTitle, sectionWidth, compactMode);
   const titleRows = wrappedLineCount(title, contentWidth);
   const hintRows = hint ? wrappedLineCount(hint, contentWidth) : 0;
   const descriptionRows = description ? spacing + wrappedLineCount(description, contentWidth) : 0;

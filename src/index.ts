@@ -58,6 +58,7 @@ export type {
 export type {
   AiConfig,
   CloudModelProvider,
+  LocalModelRuntime,
   ModelChoice,
   ModelSource
 } from "./features/models/types.js";
@@ -74,3 +75,11 @@ export {
   type MobileWorkspaceResolveContext
 } from "./features/mobile/workspace.js";
 export { defaultCloudModelProviders, defaultLocalModelChoices, defaultLanguages } from "./features/models/defaults/index.js";
+export { resolveLocalModelServiceEnv } from "./features/models/ollama/service-env.js";
+export {
+  availableOllamaModelChoices,
+  installedOllamaModels,
+  isOllamaAvailable,
+  isOllamaModelInstalled
+} from "./features/models/ollama/availability.js";
+export { installOllamaModel, uninstallOllamaModel } from "./features/models/ollama/install.js";

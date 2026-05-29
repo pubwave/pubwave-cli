@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { useApp } from "ink";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useApp, useStdout } from "ink";
 import type { CliCommandContext, PubwaveCliConfig } from "../../core/types.js";
 import type { MobileRunResult } from "../mobile/types.js";
 import {
@@ -28,7 +28,9 @@ export function SetupWizard(props: {
   projectConfig: unknown;
 }): React.ReactElement {
   const { exit } = useApp();
+  const { stdout } = useStdout();
   const { rows, columns } = useTerminalSize();
+  const onPipelineRendered = useRef<(() => void) | null>(null);
   const detectedLocale = detectWizardLocale();
   const [state, setState] = useState<SetupState>(
     () => createInitialState(props.context, props.initialConfig, detectedLocale, props.projectConfig)
@@ -45,6 +47,7 @@ export function SetupWizard(props: {
   const [currentStageId, setCurrentStageId] = useState<string | null>(null);
   const { choices: localModelChoices, refresh: refreshLocalModelChoices } = useLocalModelChoices(props.context, state.modelSource);
   const progress = useSetupProgressState();
+  const installedLocalDefaultApplied = useRef(false);
   const locale: WizardLocale = isWizardLocale(state.language) ? state.language : detectedLocale;
   const savingDots = useAnimatedDots(
     phase === "localModelInstalling"
@@ -57,22 +60,80 @@ export function SetupWizard(props: {
     [locale, localModelChoices, props.context, props.initialConfig, props.projectConfig, state]
   );
   const currentStep = steps[stepIndex] ?? steps[0]!;
+  const nextStep = steps[stepIndex + 1];
   const selectedIndex = currentChoiceIndex(currentStep, state);
+  useEffect(() => {
+    if (state.modelSource !== "local" || localModelChoices.length === 0) {
+      return;
+    }
+
+    // Only correct the selection when the current model isn't an option at all
+    // (list refreshed, the installed model was deleted, or a stale config value).
+    // Otherwise the user's own navigation to a recommended/more entry would be
+    // snapped back, making it impossible to pick a not-yet-installed model.
+    if (localModelChoices.some((choice) => choice.value === state.model)) {
+      return;
+    }
+
+    const fallback = localModelChoices.find((choice) => choice.group === "installed")
+      ?? localModelChoices[0];
+    if (!fallback) {
+      return;
+    }
+
+    setState((current) => current.modelSource === "local" && current.model === state.model
+      ? { ...current, model: fallback.value }
+      : current);
+  }, [localModelChoices, state.model, state.modelSource]);
+  useEffect(() => {
+    if (state.modelSource !== "local") {
+      installedLocalDefaultApplied.current = false;
+      return;
+    }
+
+    if ((currentStep.id !== "model" && nextStep?.id !== "model") || installedLocalDefaultApplied.current) {
+      return;
+    }
+
+    const installedChoice = localModelChoices.find((choice) => choice.group === "installed");
+    if (!installedChoice) {
+      return;
+    }
+
+    installedLocalDefaultApplied.current = true;
+    setState((current) => current.modelSource === "local" && current.model !== installedChoice.value
+      ? { ...current, model: installedChoice.value }
+      : current);
+  }, [currentStep.id, localModelChoices, nextStep?.id, state.modelSource]);
+  useEffect(() => {
+    setStepIndex((current) => Math.max(0, Math.min(current, steps.length - 1)));
+  }, [steps.length]);
+  useEffect(() => {
+    if (phase !== "pipeline" || !onPipelineRendered.current) {
+      return;
+    }
+    const cb = onPipelineRendered.current;
+    onPipelineRendered.current = null;
+    // stdout.write('', cb) queues the callback behind all prior Ink writes,
+    // guaranteeing the terminal has the new frame before we proceed.
+    stdout.write("", cb);
+  }, [phase, stdout]);
   const hasMobileInstall = state.mobileInstall === "install" && !!props.context.features.mobile;
   const isMobileStage = currentStageId === "mobile-install";
   const postMobileStages = ((props.context.features.setup.stages ?? []) as Array<{ id: string; insertAfter?: string }>)
     .filter((s) => s.insertAfter === "mobile-install");
   const postMobileStageIds = new Set(postMobileStages.map((s) => s.id));
   const isPostMobileStage = currentStageId !== null && postMobileStageIds.has(currentStageId);
-  const postMobileCount = hasMobileInstall ? postMobileStages.length : 0;
-  const displayStepsLength = steps.length + (hasMobileInstall ? 1 : 0) + postMobileCount;
+  const mobileDisplayCount = hasMobileInstall ? 1 : 0;
+  const postMobileBaseIndex = steps.length + mobileDisplayCount;
+  const displayStepsLength = postMobileBaseIndex + postMobileStages.length;
   const mobileStepIndex = steps.length;
   const displayStepIndex = phase === "done"
-    ? steps.length - 1
+    ? displayStepsLength - 1
     : hasMobileInstall && (phase === "mobileRetry" || phase === "mobileDeviceChoice" || (phase === "pipeline" && isMobileStage))
       ? mobileStepIndex
-      : hasMobileInstall && phase === "pipeline" && isPostMobileStage
-        ? mobileStepIndex + postMobileStages.findIndex((s) => s.id === currentStageId) + 1
+      : phase === "pipeline" && isPostMobileStage
+        ? postMobileBaseIndex + postMobileStages.findIndex((s) => s.id === currentStageId)
         : stepIndex;
 
   const isInstalledModelSelected = currentStep.id === "model"
@@ -101,12 +162,13 @@ export function SetupWizard(props: {
     panelHeight,
     sectionWidth,
     compactMode,
+    bannerTitle: props.context.app.name,
     title: currentStep.title,
     hint: currentStep.hint,
     description,
     navigationText
   });
-  const { prepareLocalModel, saveAndExit, retryMobileInstall, mobileDeviceSelectionResolver } = useWizardSave({
+  const { prepareLocalModel, saveAndExit, retryMobileInstall, skipMobileInstallAndContinue, mobileDeviceSelectionResolver } = useWizardSave({
     context: props.context,
     initialConfig: props.initialConfig,
     projectConfig: props.projectConfig,
@@ -121,7 +183,9 @@ export function SetupWizard(props: {
     setMobileDeviceChoiceState,
     setMobileDeviceCursorIndex,
     setCurrentStageId,
-    exit
+    refreshLocalModelChoices,
+    exit,
+    onPipelineRendered
   });
   useWizardInput({
     context: props.context,
@@ -149,6 +213,7 @@ export function SetupWizard(props: {
     prepareLocalModel,
     saveAndExit,
     retryMobileInstall,
+    skipMobileInstallAndContinue,
     refreshLocalModelChoices,
     exit
   });
@@ -158,6 +223,7 @@ export function SetupWizard(props: {
       appName={props.context.app.name}
       context={props.context}
       initialConfig={props.initialConfig}
+      projectConfig={props.projectConfig}
       phase={phase}
       state={state}
       locale={locale}

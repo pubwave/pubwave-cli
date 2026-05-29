@@ -15,7 +15,7 @@ export const defaultCloudModelProviders: CloudModelProvider[] = [
       { label: "GPT-5 Nano", value: "gpt-5-nano" },
       { label: "GPT-4.1", value: "gpt-4.1" },
       { label: "GPT-4.1 Mini", value: "gpt-4.1-mini" },
-      { label: "o3-pro", value: "o3-pro" }
+      { label: "GPT-4o Mini", value: "gpt-4o-mini" }
     ]
   },
   {
@@ -209,6 +209,7 @@ export const defaultCloudModelProviders: CloudModelProvider[] = [
       { label: "MiniMax M2.7", value: "minimax/minimax-m2.7" },
       { label: "GPT-5.4 Nano", value: "openai/gpt-5.4-nano" },
       { label: "GPT-5.4 Mini", value: "openai/gpt-5.4-mini" },
+      { label: "GPT-4o Mini", value: "openai/gpt-4o-mini" },
       { label: "Mistral Small 4", value: "mistralai/mistral-small-2603" },
       { label: "GLM 5 Turbo", value: "z-ai/glm-5-turbo" }
     ]

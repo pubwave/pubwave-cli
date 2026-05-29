@@ -28,7 +28,9 @@ export function normalizeFeatures<TProjectConfig>(
       enabled: features?.setup !== false,
       languages: setup.languages ?? defaultLanguages,
       customSteps: setup.customSteps ?? [],
-      stages: setup.stages ?? []
+      stages: setup.stages ?? [],
+      shouldRequireAiSetup: setup.shouldRequireAiSetup ?? (() => true),
+      configRows: setup.configRows ?? []
     },
     cloudModel: {
       enabled: features?.cloudModel !== false,

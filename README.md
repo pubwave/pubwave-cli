@@ -1,111 +1,142 @@
 # Pubwave CLI
 
-Composable Ink-based CLI toolkit for projects that need language setup, cloud model selection, local model management, and Flutter mobile app installation.
+Pubwave CLI is a reusable command-line toolkit for AI-enabled projects that need a clear first-run setup flow.
 
-The package is designed for open-source projects that want a useful CLI without hard-coding their own product concepts into the toolkit.
-
-## Install
+It gives your project a polished terminal UI for language selection, cloud or local model setup, Ollama model management, config persistence, and optional Flutter mobile installation.
 
 ```bash
 npm install @pubwave/cli
 ```
 
-## Minimal Usage
+Requires Node.js 20 or newer.
 
-```ts
-import { createPubwaveCli, jsonConfig } from "@pubwave/cli";
+## What You Get
 
-createPubwaveCli({
-  app: {
-    name: "My App",
-    command: "myapp"
-  },
-  config: jsonConfig({ scope: "user" })
-}).run();
-```
+| Capability | What it does |
+| --- | --- |
+| Interactive setup | Guides users through language, model, API key, local model, and mobile choices. |
+| Config commands | Adds `config get` and `config set` for saved CLI configuration. |
+| Local models | Lists, installs, selects, verifies, and removes Ollama models. |
+| Flutter mobile setup | Checks Flutter, finds connected devices, runs `flutter pub get`, and installs the app. |
+| Project commands | Lets your app register commands like `sync`, `source list`, or `launch`. |
+| Reusable API | Lets each host project keep its own name, config shape, commands, and runtime behavior. |
 
-With `scope: "user"`, setup saves to `~/.myapp/config.json` no matter which directory the installed CLI is run from. Use `scope: "project"` for local project entrypoints and examples that should save to the project root found from the current working directory.
+## Two Ways To Use It
 
-This enables:
+Use the published command directly:
 
 ```bash
-myapp setup
-myapp config get
-myapp config set --language=ja --provider=openai --model=gpt-5.2
-myapp model local list
-myapp model local install --model=qwen2.5:7b
-myapp model local use --model=qwen2.5:7b
-myapp mobile devices
-myapp mobile install
-myapp help
-myapp version
+pubwave help
+pubwave setup
 ```
 
-## Features
-
-Features are optional. Commands only appear when the relevant feature is enabled.
+Or create your own project CLI:
 
 ```ts
-createPubwaveCli({
-  app,
-  config,
+#!/usr/bin/env node
+import { createPubwaveCli, jsonConfig } from "@pubwave/cli";
+
+const cli = createPubwaveCli({
+  app: {
+    name: "My App",
+    command: "myapp",
+    version: "1.0.0"
+  },
+  config: jsonConfig({ scope: "user" }),
   features: {
     setup: true,
     cloudModel: true,
-    localModel: {
-      autoInstallRuntime: true,
-      autoStartRuntime: true
-    },
-    mobile: {
-      flutter: {
-        projectDir: "apps/mobile",
-        releaseMode: true,
-        autoInstallSdk: true,
-        managedSdkDir: ".myapp/flutter-sdk",
-        dartDefines: ({ runtime }) => ({
-          MYAPP_API_BASE_URL: runtime?.apiBaseUrl ?? "http://127.0.0.1:4310"
-        })
-      }
-    },
-    runtime: {
-      async launch(ctx, options) {
-        return "Launch your runtime here.";
-      }
-    }
+    localModel: true
   }
-}).run();
+});
+
+await cli.run(process.argv.slice(2));
 ```
 
-## Project Commands
+That creates a project-specific CLI:
 
-Product-specific commands are registered by the host project. They are not fixed by Pubwave CLI.
-
-```ts
-createPubwaveCli({
-  app,
-  config,
-  commands: [
-    {
-      name: "sync",
-      description: "Run the project sync flow.",
-      async run(ctx, options) {
-        return "Synced.";
-      }
-    },
-    {
-      name: "source list",
-      description: "List project sources.",
-      async run() {
-        return "No sources.";
-      }
-    }
-  ]
-}).run();
+```bash
+myapp help
+myapp setup
+myapp config get
+myapp config set --language=en --provider=openai --model=gpt-5.2
+myapp model local list
+myapp model local install --model=qwen2.5:7b
+myapp model local use --model=qwen2.5:7b
+myapp version
 ```
 
-## Config Adapters
+Mobile commands appear only when the mobile feature is configured.
 
-Pubwave CLI uses a small standard config shape:
+## Setup Wizard
+
+The setup wizard is the main user experience. It turns a messy first-run setup into a short terminal flow.
+
+### 1. Choose A Language
+
+The user picks the default language for the CLI and generated output.
+
+<img src="assets/image-cli/choose-language.png" alt="Choose language" width="900">
+
+### 2. Choose A Model Source
+
+The user decides whether the project should use a cloud model provider or a local model on this machine.
+
+<img src="assets/image-cli/choose-model-source.png" alt="Choose model source" width="900">
+
+### 3. Choose A Local Model
+
+In local mode, Pubwave CLI shows installed Ollama models first, then recommended models that can be pulled and verified.
+
+<img src="assets/image-cli/choose-local-model.png" alt="Choose local model" width="900">
+
+### 4. Enable Mobile Setup
+
+If the host project provides a Flutter app, the wizard can ask whether mobile setup should be enabled.
+
+<img src="assets/image-cli/enable-mobile-setup.png" alt="Enable mobile setup" width="900">
+
+### 5. Choose Mobile Devices
+
+When multiple supported phones are connected, the user can choose exactly which devices should receive the app.
+
+<img src="assets/image-cli/choose-mobile-devices.png" alt="Choose mobile devices" width="900">
+
+Keyboard controls:
+
+| Key       | Action                                       |
+| --------- | -------------------------------------------- |
+| Up / Down | Move between choices.                        |
+| Enter     | Continue or save.                            |
+| Left      | Go back.                                     |
+| Delete    | Remove an installed local model from Ollama. |
+| Esc       | Exit the wizard.                             |
+
+## Direct CLI Usage
+
+The published package exposes `pubwave`:
+
+```bash
+pubwave help
+pubwave setup
+pubwave config get
+pubwave config set --language=ja --provider=openai --model=gpt-5.2
+pubwave model local list
+pubwave model local install --model=qwen2.5:7b
+pubwave model local use --model=qwen2.5:7b
+pubwave model local uninstall --model=qwen2.5:7b
+pubwave version
+```
+
+Its config is stored at:
+
+```text
+~/.pubwave/config.json
+```
+
+## Configuration
+
+Pubwave CLI uses a small standard setup shape:
 
 ```ts
 interface PubwaveCliConfig {
@@ -123,118 +154,150 @@ interface PubwaveCliConfig {
 }
 ```
 
-The built-in JSON adapter writes this shape to one config file:
+Use the built-in JSON adapter for simple projects:
 
 ```ts
-import { jsonConfig } from "@pubwave/cli";
-
 config: jsonConfig({ scope: "user" })
 ```
 
-`scope: "user"` stores config in `~/<homeDirName>/config.json`. This is the recommended mode for CLIs installed from npm. The published `pubwave-cli` command stores its setup at:
+User scope stores config in the user's home directory:
 
 ```text
-~/.pubwave-cli/config.json
+~/.myapp/config.json
 ```
 
-`scope: "project"` stores config in `<cwdProjectRoot>/<homeDirName>/config.json`, where `cwdProjectRoot` is found by walking up from the current working directory using `app.workspaceMarkers`. It does not use `mobile.flutter.projectDir`, because the mobile app can live in a separate project.
+Project scope stores config in the nearest project root found from the current working directory:
 
-The `examples/techbrief-like.ts` entrypoint uses project scope, so:
+```ts
+config: jsonConfig({ scope: "project" })
+```
+
+```text
+<project-root>/.myapp/config.json
+```
+
+The default config directory name is `.<command>`. You can override it:
+
+```ts
+app: {
+  name: "My App",
+  command: "myapp",
+  homeDirName: ".myapp"
+}
+```
+
+Users can also override the config home with an environment variable:
 
 ```bash
-npm run example:techbrief-like -- setup
+MYAPP_HOME=/tmp/myapp myapp setup
 ```
 
-saves to:
+## Managed Project Config
 
-```text
-<current project root>/.techbrief/config.json
+If your app already has its own config file, map it to Pubwave CLI with `managedJsonConfig(...)`.
+
+```ts
+import { createPubwaveCli, managedJsonConfig, type PubwaveCliConfig } from "@pubwave/cli";
+
+interface AppConfig {
+  app: {
+    defaultLanguage: string;
+  };
+  ai: {
+    modelSource: "cloud" | "local";
+    provider: string;
+    model: string;
+    apiKey: string;
+  };
+}
+
+const cli = createPubwaveCli<AppConfig>({
+  app: {
+    name: "My App",
+    command: "myapp",
+    version: "1.0.0"
+  },
+  config: managedJsonConfig<AppConfig>({
+    scope: "user",
+    defaults: {
+      app: { defaultLanguage: "en" },
+      ai: {
+        modelSource: "cloud",
+        provider: "openai",
+        model: "gpt-5.2",
+        apiKey: ""
+      }
+    },
+    toCliConfig(config): PubwaveCliConfig {
+      return {
+        language: config.app.defaultLanguage,
+        ai: config.ai
+      };
+    },
+    fromCliConfig(cliConfig) {
+      return {
+        app: {
+          defaultLanguage: cliConfig.language ?? "en"
+        },
+        ai: {
+          modelSource: cliConfig.ai?.modelSource ?? "cloud",
+          provider: cliConfig.ai?.provider ?? "openai",
+          model: cliConfig.ai?.model ?? "gpt-5.2",
+          apiKey: cliConfig.ai?.apiKey ?? ""
+        }
+      };
+    }
+  }),
+  features: {
+    setup: true,
+    cloudModel: true,
+    localModel: true
+  }
+});
+
+await cli.run(process.argv.slice(2));
 ```
 
-`homeDirName` defaults to `.<command>`. Set `<ENV_PREFIX>_HOME` to override the config directory explicitly. For example, `PUBWAVE_CLI_HOME=/tmp/pubwave pubwave-cli setup` writes `/tmp/pubwave/config.json`.
+## Local Models
 
-The same app home is used for managed runtime files such as the Flutter SDK cache:
+When `localModel` is enabled, Pubwave CLI works with Ollama:
 
-```text
-<appHome>/runtime/flutter-sdk
-<appHome>/runtime/downloads
+```bash
+myapp model local list
+myapp model local install --model=qwen2.5:7b
+myapp model local use --model=qwen2.5:7b
+myapp model local uninstall --model=qwen2.5:7b
 ```
 
-`mobile.flutter.projectDir` is only used as the Flutter app working directory. It does not decide where CLI config or managed runtime files are stored.
+The installer can detect Ollama, start it when possible, pull the selected model, and verify that the model responds.
 
-If your project has a different config shape, map it with `toCliConfig` and `fromCliConfig`.
+## Flutter Mobile Setup
+
+Enable mobile setup when your project has a Flutter app:
 
 ```ts
 createPubwaveCli({
   app,
-  config: {
-    load: loadProjectConfig,
-    save: saveProjectConfig,
-    toCliConfig(projectConfig) {
-      return {
-        language: projectConfig.app.defaultLanguage,
-        ai: projectConfig.ai
-      };
-    },
-    fromCliConfig(cliConfig, current) {
-      return {
-        ...current,
-        app: {
-          ...current.app,
-          defaultLanguage: cliConfig.language ?? current.app.defaultLanguage
-        },
-        ai: {
-          ...current.ai,
-          ...cliConfig.ai
-        }
-      };
+  config,
+  features: {
+    setup: true,
+    cloudModel: true,
+    localModel: true,
+    mobile: {
+      flutter: {
+        projectDir: "apps/mobile",
+        releaseMode: true,
+        autoInstallSdk: true,
+        dartDefines: ({ runtime }) => ({
+          MYAPP_API_BASE_URL: runtime?.apiBaseUrl ?? "http://127.0.0.1:4310"
+        })
+      }
     }
   }
 }).run();
 ```
 
-## Design Boundary
-
-Pubwave CLI provides reusable CLI capabilities. Your project owns runtime startup, sync logic, data source management, scheduling, and other product-specific commands.
-
-## UI
-
-Built-in commands render with Ink. The default `setup` command is an interactive keyboard wizard:
-
-- Up/down changes the selected choice.
-- Enter moves to the next step or saves.
-- Left arrow goes back.
-- Delete removes an installed local model from Ollama.
-- `c` on a cloud model step lets the user type a custom model name.
-- Escape exits.
-
-### Multilingual wizard
-
-The setup wizard UI is fully localized into nine languages. The active language is detected automatically from the system time zone, or the user can choose it as the first setup step.
-
-| Locale | Language |
-| ------ | -------- |
-| `en` | English |
-| `zh-CN` | Simplified Chinese |
-| `zh-TW` | Traditional Chinese |
-| `ja` | Japanese |
-| `ko` | Korean |
-| `es` | Spanish |
-| `fr` | French |
-| `de` | German |
-| `pt` | Portuguese |
-
-All wizard copy lives in `src/shared/i18n/wizard/locales/`. **Every text change must be applied to all nine locale files.** Locale files that do not override a key fall back to their base catalog (`enCatalog` or `zhCnCatalog`), but the base catalog must also be updated when new keys are added.
-
-When a local model is selected, setup checks Ollama, installs it automatically by default when it is missing, starts the local runtime, pulls the selected model, verifies it, and streams progress/output in the setup view. Set `localModel.autoInstallRuntime: false` to require users to install Ollama themselves.
-
-Commands also accept flags for non-interactive use:
-
-```bash
-myapp setup --language=ja --model-source=cloud --provider=openai --model=gpt-5.2
-```
-
-Flutter mobile projects also get:
+This adds:
 
 ```bash
 myapp mobile devices
@@ -243,4 +306,98 @@ myapp mobile run android
 myapp mobile run ios
 ```
 
-`mobile install` checks Flutter, can use the managed Flutter SDK when `autoInstallSdk` is enabled, detects connected Android/iOS devices automatically, runs `flutter pub get`, and installs/runs the app on the connected phone. If multiple supported phones are connected, it installs to all of them unless `--device=<id>` is provided.
+Pubwave CLI can check Flutter, list connected physical devices, run `flutter pub get`, and install the app on one or more selected devices.
+
+## Custom Commands
+
+Host projects can add their own commands. Pubwave CLI handles parsing, context, and rendering.
+
+```ts
+createPubwaveCli({
+  app,
+  config,
+  commands: [
+    {
+      name: "sync",
+      description: "Sync project data.",
+      async run() {
+        return "Synced.";
+      }
+    },
+    {
+      name: "source list",
+      description: "List configured sources.",
+      async run() {
+        return "No sources configured.";
+      }
+    }
+  ]
+}).run();
+```
+
+Those commands appear in `myapp help` alongside the built-in commands.
+
+## Runtime Hooks
+
+Projects that manage a server or background runtime can expose familiar commands:
+
+```ts
+createPubwaveCli({
+  app,
+  config,
+  features: {
+    runtime: {
+      async launch() {
+        return "Runtime started.";
+      },
+      async status() {
+        return "Runtime is running.";
+      },
+      async stop() {
+        return "Runtime stopped.";
+      },
+      async logs() {
+        return "No logs yet.";
+      }
+    }
+  }
+}).run();
+```
+
+This enables:
+
+```bash
+myapp launch
+myapp status
+myapp down
+myapp logs
+```
+
+## Localization
+
+The setup wizard is localized into English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, and Portuguese.
+
+The wizard detects a default language from the user's environment, and the user can change it in the first step.
+
+## Package Exports
+
+Import the toolkit API from the package root:
+
+```ts
+import {
+  createPubwaveCli,
+  jsonConfig,
+  managedJsonConfig,
+  defaultCloudModelProviders,
+  defaultLocalModelChoices,
+  defaultLanguages
+} from "@pubwave/cli";
+```
+
+The package also includes the `pubwave` executable for direct use.
+
+## Design Boundary
+
+Pubwave CLI provides the reusable CLI shell: setup flow, config handling, model selection, local model helpers, mobile install helpers, and command rendering.
+
+Your project still owns its product behavior: server startup, sync logic, data sources, scheduling, business commands, and app-specific configuration.
