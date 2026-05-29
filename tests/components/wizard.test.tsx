@@ -59,6 +59,22 @@ async function pressUntil(
   throw new Error(`pressUntil(${JSON.stringify(key)}) timed out. Last frame:\n${lastFrame() ?? "<empty>"}`);
 }
 
+// Advance language -> modelSource -> local model step. The model-source cursor is
+// synced to initialConfig ("local") by an async effect; wait for the caret to
+// actually land on "Local model" before confirming. Otherwise a synthetic Enter
+// can race ahead and confirm the first option ("Cloud model") under CI load,
+// dropping the wizard into the 5-step cloud flow instead of the local one.
+async function advanceToLocalModelStep(
+  stdin: { write: (data: string) => void },
+  lastFrame: () => string | undefined
+): Promise<void> {
+  await waitForFrame(lastFrame, (f) => f.includes("1 / 3"));
+  stdin.write(ENTER);
+  await waitForFrame(lastFrame, (f) => f.includes("2 / 3"));
+  await waitForFrame(lastFrame, (f) => f.includes("› Local model"));
+  stdin.write(ENTER);
+}
+
 beforeAll(() => {
   // Give Ink a roomy viewport so nothing is clipped/windowed during the test.
   Object.defineProperty(process.stdout, "columns", { value: 120, configurable: true });
@@ -90,12 +106,7 @@ describe("SetupWizard local-model navigation (Fix #1)", () => {
   it("can move the cursor off the installed model onto recommended/more entries", { timeout: 15_000, retry: 2 }, async () => {
     const { lastFrame, stdin, unmount } = renderWizard();
 
-    // Advance language -> modelSource -> model step. Wait for each transition
-    // deterministically so the next keystroke doesn't race the previous render.
-    await waitForFrame(lastFrame, (f) => f.includes("1 / 3"));
-    stdin.write(ENTER);
-    await waitForFrame(lastFrame, (f) => f.includes("2 / 3"));
-    stdin.write(ENTER);
+    await advanceToLocalModelStep(stdin, lastFrame);
 
     // Wait until the model step has loaded the installed model and selected it
     // as the default.
@@ -114,10 +125,7 @@ describe("SetupWizard local-model navigation (Fix #1)", () => {
 
   it("defaults to the first installed local model when the model step opens", { timeout: 15_000, retry: 2 }, async () => {
     const { lastFrame, stdin, unmount } = renderWizard();
-    await waitForFrame(lastFrame, (f) => f.includes("1 / 3"));
-    stdin.write(ENTER);
-    await waitForFrame(lastFrame, (f) => f.includes("2 / 3"));
-    stdin.write(ENTER);
+    await advanceToLocalModelStep(stdin, lastFrame);
 
     const frame = await waitForFrame(lastFrame, (f) => f.includes("› qwen3:8b (Installed)") && f.includes("qwen2.5:7b"));
     expect(frame).not.toContain("› qwen2.5:7b");
@@ -126,10 +134,7 @@ describe("SetupWizard local-model navigation (Fix #1)", () => {
 
   it("shows installed and recommended group headers on the model step", { timeout: 15_000, retry: 2 }, async () => {
     const { lastFrame, stdin, unmount } = renderWizard();
-    await waitForFrame(lastFrame, (f) => f.includes("1 / 3"));
-    stdin.write(ENTER);
-    await waitForFrame(lastFrame, (f) => f.includes("2 / 3"));
-    stdin.write(ENTER);
+    await advanceToLocalModelStep(stdin, lastFrame);
     const frame = await waitForFrame(lastFrame, (f) => f.includes("qwen3:8b (Installed)") && f.includes("qwen2.5:7b"));
     // Both the installed entry and a recommended entry are present simultaneously.
     expect(frame).toContain("qwen3:8b (Installed)");
