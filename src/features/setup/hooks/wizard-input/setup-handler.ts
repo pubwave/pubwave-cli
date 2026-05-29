@@ -1,5 +1,5 @@
 import { wizardMessage } from "../../../../shared/i18n/wizard/index.js";
-import { uninstallOllamaModel } from "../../../models/ollama/install.js";
+import { uninstallOllamaModelAsync } from "../../../models/ollama/install.js";
 import { applyChoice } from "../../state/choice.js";
 import { handleInlineTextInput } from "../../state/inline-input.js";
 import type { WizardInputContext, WizardInputKey } from "./context.js";
@@ -42,11 +42,16 @@ export function handleSetupInput(
   if (key.delete && ctx.currentStep.id === "model" && ctx.state.modelSource === "local") {
     const selectedChoice = ctx.currentStep.choices[ctx.selectedIndex];
     if (selectedChoice?.group === "installed") {
-      uninstallOllamaModel(selectedChoice.value);
-      if (ctx.state.model === selectedChoice.value) {
-        ctx.setState((previous) => ({ ...previous, model: "" }));
-      }
-      ctx.refreshLocalModelChoices();
+      // Fire-and-forget so the Ink event loop keeps running; refresh after the
+      // rm completes so the list reflects the removal exactly once.
+      const modelValue = selectedChoice.value;
+      void (async () => {
+        await uninstallOllamaModelAsync(modelValue);
+        ctx.setState((previous) => previous.model === modelValue
+          ? { ...previous, model: "" }
+          : previous);
+        ctx.refreshLocalModelChoices();
+      })();
       return;
     }
   }
@@ -75,7 +80,7 @@ function handleChoiceNavigation(ctx: WizardInputContext, key: WizardInputKey): v
     ctx.setState((previous) => ({
       ...previous,
       cloudModelInputMode: true,
-      model: ""
+      model: previous.customModelDraft ?? ""
     }));
     return;
   }
@@ -126,15 +131,16 @@ function resolveInputField(stepId: string, inputValueKey: "model" | "apiKey" | u
 
 async function continueOrSave(ctx: WizardInputContext): Promise<void> {
   ctx.setInputError(null);
+  if (ctx.currentStep.id === "model" && ctx.state.modelSource === "local") {
+    const prepared = await ctx.prepareLocalModel();
+    if (!prepared) {
+      return;
+    }
+  }
+
   if (ctx.isLastStep) {
     await ctx.saveAndExit();
   } else {
-    if (ctx.currentStep.id === "model" && ctx.state.modelSource === "local") {
-      const prepared = await ctx.prepareLocalModel();
-      if (!prepared) {
-        return;
-      }
-    }
     ctx.setStepIndex((previous) => previous + 1);
   }
 }

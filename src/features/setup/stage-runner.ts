@@ -13,6 +13,7 @@ const STANDARD_STAGE_ORDER: StandardStageId[] = [
 ];
 
 export interface StageRunnerCallbacks {
+  resetStageProgress?(): void;
   setStageTitle(title: string | null): void;
   setCurrentStageId(id: string | null): void;
   setError(message: string | null): void;
@@ -81,6 +82,7 @@ export async function runStagePipeline<T>(
     }
 
     const title = typeof stage.title === "function" ? stage.title(ctx) : stage.title;
+    callbacks.resetStageProgress?.();
     callbacks.setCurrentStageId(stage.id);
     callbacks.setStageTitle(title);
 

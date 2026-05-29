@@ -1,6 +1,21 @@
-import type { PubwaveCliConfig, SavedViewRow } from "../../../core/types.js";
+import type { PubwaveCliConfig, SavedViewContext, SavedViewRow } from "../../../core/types.js";
 import type { KeyValueItem } from "../../../ui/index.js";
 import { wizardMessage, type WizardLocale } from "../../../shared/i18n/wizard/index.js";
+
+/**
+ * Resolve a `SavedViewRow[]` source (array or builder fn) against a context.
+ * Shared by the saved view and the completion screen so both render the same
+ * host-provided config rows.
+ */
+export function resolveSavedViewRows<TProjectConfig>(
+  rows: SavedViewRow[] | ((ctx: SavedViewContext<TProjectConfig>) => SavedViewRow[]) | undefined,
+  ctx: SavedViewContext<TProjectConfig>
+): SavedViewRow[] {
+  if (!rows) {
+    return [];
+  }
+  return typeof rows === "function" ? rows(ctx) : rows;
+}
 
 export function setupConfigItems(
   config: PubwaveCliConfig,

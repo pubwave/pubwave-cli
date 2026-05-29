@@ -3,6 +3,18 @@ import type { WizardLocale } from "../../shared/i18n/wizard/index.js";
 import type { ModelChoice } from "../models/types.js";
 import type { MobileInstallableDevice } from "../mobile/types.js";
 
+/**
+ * The host's project-config type is intentionally erased to `any` at the wizard
+ * boundary. `unknown` cannot be used here: {@link CustomSetupStep} is invariant
+ * in its type parameter (the `choices(ctx)` callback places it in a
+ * contravariant position), so `CliCommandContext<unknown>` is not assignable
+ * from a concrete `CliCommandContext<PubwaveCliConfig>`. Naming the escape
+ * hatch keeps the single `any` deliberate and self-documenting, while leaving
+ * the no-explicit-any rule active everywhere else.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ErasedProjectConfig = any;
+
 export type SetupPhase =
   | "setup"
   | "localModelInstalling"
@@ -61,6 +73,8 @@ export interface SetupState {
   provider: string;
   model: string;
   cloudModelInputMode: boolean;
+  /** Saved custom model value; restored when the user re-enters the text input after navigating the choice list. */
+  customModelDraft?: string;
   apiKey: string;
   mobileInstall: "skip" | "install";
   customValues: Record<string, unknown>;

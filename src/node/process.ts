@@ -10,6 +10,8 @@ export interface CommandResult {
 export interface AsyncCommandHandlers {
   onStdout?: (chunk: string) => void;
   onStderr?: (chunk: string) => void;
+  inheritStdin?: boolean;
+  stdinData?: string;
 }
 
 export function runCommand(command: string, args: string[], cwd = process.cwd()): CommandResult {
@@ -34,13 +36,20 @@ export async function runCommandAsync(
   handlers?: AsyncCommandHandlers
 ): Promise<CommandResult> {
   return await new Promise<CommandResult>((resolve) => {
+    const stdinMode = handlers?.inheritStdin ? "inherit" : "pipe";
     const child = spawn(command, args, {
       cwd,
-      env: process.env
+      env: process.env,
+      stdio: [stdinMode, "pipe", "pipe"]
     });
 
     let stdout = "";
     let stderr = "";
+
+    if (handlers?.stdinData !== undefined) {
+      child.stdin?.write(handlers.stdinData + "\n");
+      child.stdin?.end();
+    }
 
     child.stdout?.on("data", (chunk) => {
       const text = String(chunk);

@@ -3,7 +3,11 @@ import { Box, Text } from "ink";
 import type { WizardLocale } from "../../../../shared/i18n/wizard/index.js";
 import type { StatusCard } from "../../progress-types.js";
 import type { DeviceInstallState, ProgressLine } from "../../types.js";
-import { setupOutputProgressKey, stripTrailingDots, withAnimatedDots } from "../../progress/output.js";
+import {
+  setupOutputProgressKey,
+  stripTrailingDots,
+  withAnimatedDots,
+} from "../../progress/output.js";
 import { SetupStepShell } from "../primitives/step-shell.js";
 
 export function SetupProgressView(props: {
@@ -26,10 +30,15 @@ export function SetupProgressView(props: {
 }): React.ReactElement {
   const visibleProgressLines = props.progressLines.slice(-6);
   const isError = props.statusColor === "red";
-  const hasLocalModelPullProgress = props.outputLines.some((line) => setupOutputProgressKey(line.text)?.startsWith("pulling:"));
-  const outputLineLimit = hasLocalModelPullProgress ? 8 : 3;
-  const visibleOutputLines = isError ? [] : props.outputLines.slice(-outputLineLimit);
-  const visibleDeviceStates = isError ? [] : props.deviceInstallStates.slice(-2);
+  const nonPullOutputLines = props.outputLines.filter((line) =>
+    !setupOutputProgressKey(line.text)?.startsWith("pulling:"),
+  );
+  const visibleOutputLines = isError
+    ? []
+    : nonPullOutputLines.slice(-3);
+  const visibleDeviceStates = isError
+    ? []
+    : props.deviceInstallStates.slice(-2);
 
   const blocks: React.ReactNode[] = [];
 
@@ -37,12 +46,21 @@ export function SetupProgressView(props: {
     blocks.push(
       <Box key="progress" flexDirection="column">
         {visibleProgressLines.map((line, index) => (
-          <Text key={`${line.text}-${index}`} color={index === visibleProgressLines.length - 1 ? line.color ?? "cyan" : "green"}>
+          <Text
+            key={`${line.text}-${index}`}
+            color={
+              index === visibleProgressLines.length - 1
+                ? (line.color ?? "cyan")
+                : "green"
+            }
+          >
             {index === visibleProgressLines.length - 1 ? "› " : "· "}
-            {index === visibleProgressLines.length - 1 ? withAnimatedDots(line.text, props.savingDots) : `${stripTrailingDots(line.completedText ?? line.text)} ✅`}
+            {index === visibleProgressLines.length - 1
+              ? withAnimatedDots(line.text, props.savingDots)
+              : `${stripTrailingDots(line.completedText ?? line.text)} ✅`}
           </Text>
         ))}
-      </Box>
+      </Box>,
     );
   }
 
@@ -50,24 +68,40 @@ export function SetupProgressView(props: {
     blocks.push(
       <Box key="output" flexDirection="column">
         {visibleOutputLines.map((line, index) => (
-          <Text key={`output-${index}`} color={line.color ?? "cyan"}>│ {line.text}</Text>
+          <Text key={`output-${index}`} color={line.color ?? "cyan"}>
+            │ {line.text}
+          </Text>
         ))}
-      </Box>
+      </Box>,
     );
   }
 
   for (const state of visibleDeviceStates) {
     blocks.push(
       <Box key={`device-${state.deviceId}`} flexDirection="column">
-        <Text color={state.status === "failed" ? "red" : state.status === "completed" ? "green" : "yellow"}>
-          {state.status === "failed" ? "! " : state.status === "completed" ? "· " : "› "}
+        <Text
+          color={
+            state.status === "failed"
+              ? "red"
+              : state.status === "completed"
+                ? "green"
+                : "yellow"
+          }
+        >
+          {state.status === "failed"
+            ? "! "
+            : state.status === "completed"
+              ? "· "
+              : "› "}
           {state.label}
         </Text>
         {state.outputLines.slice(-3).map((line, index) => (
-          <Text key={`${state.deviceId}-${index}`} color={line.color ?? "cyan"}>│ {line.text}</Text>
+          <Text key={`${state.deviceId}-${index}`} color={line.color ?? "cyan"}>
+            │ {line.text}
+          </Text>
         ))}
         {state.detail ? <Text color="red">│ {state.detail}</Text> : null}
-      </Box>
+      </Box>,
     );
   }
 
@@ -75,7 +109,7 @@ export function SetupProgressView(props: {
     blocks.push(
       <Box key="install-message">
         <Text color="red">{props.installMessage}</Text>
-      </Box>
+      </Box>,
     );
   }
 
@@ -87,13 +121,16 @@ export function SetupProgressView(props: {
           <Box key={card.id} flexDirection="column" marginTop={1}>
             <Text color={card.color ?? "cyanBright"}>┌─ {card.title}</Text>
             {(card.rows ?? []).map((row, index) => (
-              <Text key={`${card.id}-row-${index}`} color="gray">│ {row.label}{row.value ? `: ${row.value}` : ""}</Text>
+              <Text key={`${card.id}-row-${index}`} color="gray">
+                │ {row.label}
+                {row.value ? `: ${row.value}` : ""}
+              </Text>
             ))}
             {card.hint ? <Text color="yellow">│ {card.hint}</Text> : null}
             <Text color={card.color ?? "cyanBright"}>└─</Text>
           </Box>
         ))}
-      </Box>
+      </Box>,
     );
   }
 
@@ -103,7 +140,8 @@ export function SetupProgressView(props: {
       compactMode={props.compactMode}
       kind="choice"
       locale={props.locale}
-      title={props.status}
+      title={withAnimatedDots(props.status, props.savingDots)}
+      titleColor={isError ? "red" : props.statusColor}
       hint=""
       isFirstStep={false}
       isLastStep
@@ -115,7 +153,11 @@ export function SetupProgressView(props: {
     >
       <Box flexDirection="column">
         {blocks.map((block, index) => (
-          <Box key={index} flexDirection="column" {...(index > 0 ? { marginTop: 1 } : {})}>
+          <Box
+            key={index}
+            flexDirection="column"
+            {...(index > 0 ? { marginTop: 1 } : {})}
+          >
             {block}
           </Box>
         ))}

@@ -60,7 +60,7 @@ export function applyChoice(
 
 export function currentChoiceIndex(step: SetupStep, state: SetupState): number {
   if (step.id === "model" && state.cloudModelInputMode) {
-    return Math.max(0, step.choices.length - 1);
+    return -1;
   }
 
   const currentValue = readStateValue(state, step.id);

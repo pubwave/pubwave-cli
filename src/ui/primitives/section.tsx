@@ -11,6 +11,7 @@ interface SectionProps {
   bordered?: boolean;
   showTitle?: boolean;
   contentGap?: number;
+  compactBanner?: boolean;
 }
 
 export function Section({
@@ -21,7 +22,8 @@ export function Section({
   height,
   bordered = true,
   showTitle = true,
-  contentGap = 1
+  contentGap = 1,
+  compactBanner = false
 }: SectionProps): React.ReactElement {
   return (
     <Box
@@ -33,7 +35,7 @@ export function Section({
       width={width}
       height={height}
     >
-      <CliBanner width={width} title={bannerTitle} />
+      <CliBanner width={width} title={bannerTitle} compact={compactBanner} />
       {showTitle && title ? <Text color="cyanBright">{title}</Text> : null}
       <Box marginTop={showTitle && title ? contentGap : 0} flexDirection="column">
         {children}

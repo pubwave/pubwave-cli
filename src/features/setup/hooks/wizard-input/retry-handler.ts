@@ -3,8 +3,8 @@ import { mobileProjectDir, openMacAppStoreXcode, openXcodeWorkspace } from "../.
 import type { WizardInputContext, WizardInputKey } from "./context.js";
 
 export function handleMobileRetryInput(ctx: WizardInputContext, key: WizardInputKey): void {
-  if (key.leftArrow) {
-    void ctx.saveAndExit({ mobileInstall: "skip" });
+  if (key.rightArrow) {
+    void ctx.skipMobileInstallAndContinue();
     return;
   }
 

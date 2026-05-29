@@ -49,6 +49,7 @@ export interface WizardProgressText {
   checkOllama: string;
   installOllama: string;
   startRuntime: string;
+  waitOllama: string;
   checkLocalModel: string;
   installLocalModel: string;
   verifyLocalModel: string;
@@ -66,6 +67,7 @@ export interface WizardProgressText {
 
 export type MessageKey =
   | "firstRunTitle"
+  | "setupOllamaInstalling"
   | "setupLocalModelInstalling"
   | "setupSaving"
   | "setupMobileInstalling"
@@ -74,6 +76,7 @@ export type MessageKey =
   | "launchReadyHint"
   | "launchReadyNav"
   | "launchSetupHint"
+  | "completionExitHint"
   | "stepLabel"
   | "languageTitle"
   | "languageHint"
@@ -93,15 +96,11 @@ export type MessageKey =
   | "customCloudModelDescription"
   | "mobileInstallTitle"
   | "mobileInstallHint"
-  | "mobilePlatformTitle"
-  | "mobilePlatformHint"
   | "mobileDeviceChoiceTitle"
   | "mobileDeviceChoiceHint"
   | "mobileDeviceChoiceNav"
   | "mobileInstallSkip"
   | "mobileInstallNow"
-  | "mobilePlatformAndroid"
-  | "mobilePlatformIos"
   | "localModelTitle"
   | "localModelHint"
   | "installedModelsGroup"
@@ -116,7 +115,6 @@ export type MessageKey =
   | "aiProvider"
   | "aiModel"
   | "mobileInstallStatus"
-  | "mobilePlatformStatus"
   | "mobileInstallEnabledStatus"
   | "mobileInstallSkippedStatus";
 

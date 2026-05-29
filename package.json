@@ -13,36 +13,49 @@
     }
   },
   "bin": {
-    "pubwave-cli": "./dist/bin.js"
+    "pubwave": "./dist/bin.js"
   },
   "files": [
     "dist",
+    "assets/image-cli",
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "example:techbrief-like": "tsx examples/techbrief-like.ts",
     "example:with-custom-step": "tsx examples/with-custom-step.ts",
     "example:with-stages": "tsx examples/with-stages.ts",
     "example:with-managed-config": "tsx examples/with-managed-config.ts",
-    "test": "npm run check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "ci": "npm run check && npm run lint && vitest run",
     "prepack": "npm run build"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/figlet": "^1.7.0",
     "@types/node": "^22.15.21",
     "@types/react": "^19.2.14",
-    "ink": "^6.8.0",
-    "react": "^19.2.6",
+    "eslint": "^10.4.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.6.0",
+    "ink-testing-library": "^4.0.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.60.0",
+    "vitest": "^4.1.7"
   },
   "dependencies": {
-    "figlet": "^1.11.0"
+    "figlet": "^1.11.0",
+    "ink": "^6.8.0",
+    "react": "^19.2.6"
   },
   "peerDependencies": {
     "ink": "^6.8.0",

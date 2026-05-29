@@ -6,6 +6,7 @@ import { resolveCliPaths } from "./paths.js";
 import { formatUnknownCommand } from "./output.js";
 import { parseCommand } from "./parse-command.js";
 import { isReactElement, renderInk, unknownResultView } from "../ui/index.js";
+import { MobileDeviceSelectView } from "./commands/mobile-device-select-view.js";
 import { SavedSetupView } from "../features/setup/components/saved-view.js";
 import { SetupWizard } from "../features/setup/wizard.js";
 import type {
@@ -103,7 +104,7 @@ export function createPubwaveCli<TProjectConfig = PubwaveCliConfig>(
             projectConfig
           );
           if (element) {
-            await renderInk(element);
+            await renderInk(element, { fullscreen: isFullscreenView(element) });
             return;
           }
         }
@@ -127,6 +128,19 @@ export function createPubwaveCli<TProjectConfig = PubwaveCliConfig>(
   };
 }
 
+// Interactive, long-lived views that redraw and must own the whole viewport.
+// Static one-shot views (help, config, messages) render normally so their
+// output stays in the scrollback after exit.
+const FULLSCREEN_VIEWS: ReadonlyArray<React.ElementType> = [
+  SetupWizard,
+  SavedSetupView,
+  MobileDeviceSelectView
+];
+
+function isFullscreenView(element: React.ReactElement): boolean {
+  return FULLSCREEN_VIEWS.includes(element.type as React.ElementType);
+}
+
 function resolveConfigAdapter<TProjectConfig>(
   config: CreatePubwaveCliOptions<TProjectConfig>["config"],
   context: Pick<CliCommandContext<TProjectConfig>, "app" | "paths">
@@ -145,7 +159,7 @@ async function runCommand<TProjectConfig>(
 
   const result = await command.run(context, options);
   if (isReactElement(result)) {
-    await renderInk(result);
+    await renderInk(result, { fullscreen: isFullscreenView(result) });
     return;
   }
 

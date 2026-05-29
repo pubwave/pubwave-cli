@@ -30,7 +30,7 @@ export function applyConfigOptions(current: PubwaveCliConfig, options: Record<st
     language: stringOption(options.language) ?? current.language,
     ai: {
       ...current.ai,
-      modelSource: normalizeModelSource(stringOption(options["model-source"]) ?? current.ai?.modelSource),
+      modelSource: normalizeModelSource(stringOption(options["model-source"])) ?? current.ai?.modelSource,
       provider: stringOption(options.provider) ?? current.ai?.provider,
       model: stringOption(options.model) ?? current.ai?.model,
       apiKey: stringOption(options["api-key"]) ?? current.ai?.apiKey
@@ -51,7 +51,7 @@ export function buildSetupConfigFromOptions(
   const defaultProvider = context.features.cloudModel.providers[0];
   const defaultModel = defaultProvider?.models[0];
   const defaultLocalModel = context.features.localModel.choices[0];
-  const modelSource = normalizeModelSource(stringOption(options["model-source"]) ?? current.ai?.modelSource ?? "cloud");
+  const modelSource = normalizeModelSource(stringOption(options["model-source"])) ?? current.ai?.modelSource ?? "cloud";
   const provider = modelSource === "local" ? "local" : stringOption(options.provider) ?? current.ai?.provider ?? defaultProvider?.value ?? "openai";
   const model = stringOption(options.model)
     ?? current.ai?.model

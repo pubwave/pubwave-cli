@@ -20,7 +20,11 @@ interface InlineTextInputArgs {
 
 export function handleInlineTextInput(input: InlineTextInputArgs): void {
   if (input.key.upArrow && input.field === "model") {
-    input.setState((previous) => ({ ...previous, cloudModelInputMode: false }));
+    input.setState((previous) => ({
+      ...previous,
+      cloudModelInputMode: false,
+      customModelDraft: previous.model
+    }));
     return;
   }
 

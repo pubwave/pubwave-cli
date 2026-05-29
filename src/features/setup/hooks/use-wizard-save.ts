@@ -6,6 +6,7 @@ import { wizardMessage, type WizardLocale } from "../../../shared/i18n/wizard/in
 import { friendlySetupError, onlyHasIosTrustIssue, type MobileRetryGuideKind } from "../mobile/error-analysis.js";
 import { ensureSetupLocalModel, runSetupMobileInstall } from "../installers/index.js";
 import { stateToConfig } from "../state/state-to-config.js";
+import { shouldRequireAiSetup } from "../state/steps.js";
 import { runStagePipeline, type StageRunnerCallbacks } from "../stage-runner.js";
 import type {
   SetupStage,
@@ -36,13 +37,16 @@ interface UseWizardSaveInput {
   setMobileDeviceChoiceState: React.Dispatch<React.SetStateAction<MobileDeviceChoiceState | null>>;
   setMobileDeviceCursorIndex: React.Dispatch<React.SetStateAction<number>>;
   setCurrentStageId: React.Dispatch<React.SetStateAction<string | null>>;
+  refreshLocalModelChoices: () => void;
   exit: () => void;
+  onPipelineRendered: React.MutableRefObject<(() => void) | null>;
 }
 
 interface UseWizardSaveResult {
   prepareLocalModel: () => Promise<boolean>;
   saveAndExit: (override?: Partial<SetupState>) => Promise<void>;
   retryMobileInstall: () => Promise<void>;
+  skipMobileInstallAndContinue: () => Promise<void>;
   mobileDeviceSelectionResolver: React.MutableRefObject<((selectedDeviceIds: string[]) => void) | null>;
 }
 
@@ -95,10 +99,11 @@ export function useWizardSave(input: UseWizardSaveInput): UseWizardSaveResult {
   ): SetupStage<unknown>[] {
     const prepareLocalModelStage: SetupStage<unknown> = {
       id: "prepare-local-model",
-      title: wizardMessage(input.locale, "setupLocalModelInstalling"),
-      skip: () => configuredLocalModelKey(stateToConfig(input.initialConfig, effectiveState, input.context)) === null,
+      title: wizardMessage(input.locale, "setupOllamaInstalling"),
+      skip: () => !requiresAiSetup(effectiveState)
+        || configuredLocalModelKey(stateToConfig(input.initialConfig, effectiveState, input.context, input.projectConfig)) === null,
       run: async (): Promise<StageResult> => {
-        const nextConfig = stateToConfig(input.initialConfig, effectiveState, input.context);
+        const nextConfig = stateToConfig(input.initialConfig, effectiveState, input.context, input.projectConfig);
         await ensureLocalModelForConfig(nextConfig);
         return { status: "ok" };
       }
@@ -109,7 +114,7 @@ export function useWizardSave(input: UseWizardSaveInput): UseWizardSaveResult {
       title: wizardMessage(input.locale, "setupSaving"),
       run: async (ctx): Promise<StageResult> => {
         let projectConfig: unknown = ctx.projectConfig;
-        let cliConfig = stateToConfig(input.initialConfig, effectiveState, input.context);
+        let cliConfig = stateToConfig(input.initialConfig, effectiveState, input.context, projectConfig);
 
         const customSteps = (input.context.features.setup.customSteps ?? []) as CustomSetupStep<unknown>[];
         for (const step of customSteps) {
@@ -161,7 +166,12 @@ export function useWizardSave(input: UseWizardSaveInput): UseWizardSaveResult {
     const stageCtx = buildStageContext<unknown>(effectiveState, abortController.signal);
     const builtIn = buildBuiltInStages(effectiveState, mobileResultBucket);
     const hostStages = (input.context.features.setup.stages ?? []) as SetupStage<unknown>[];
+    const postMobileStages = hostStages.filter(
+      (s) => (s as { insertAfter?: string }).insertAfter === "mobile-install"
+    );
+    const initialStages = [...builtIn, ...hostStages.filter((stage) => !postMobileStages.includes(stage))];
     const callbacks: StageRunnerCallbacks = {
+      resetStageProgress: () => input.progress.resetProgress(),
       setStageTitle: (title) => input.progress.setStageTitle(title),
       setCurrentStageId: (id) => input.setCurrentStageId(id),
       setError: (message) => input.setError(message ? friendlySetupError(input.locale, message) : null),
@@ -171,7 +181,7 @@ export function useWizardSave(input: UseWizardSaveInput): UseWizardSaveResult {
       }
     };
 
-    const pipelineResult = await runStagePipeline([...builtIn, ...hostStages], stageCtx, callbacks);
+    const pipelineResult = await runStagePipeline(initialStages, stageCtx, callbacks);
 
     if (!pipelineResult.ok) {
       return;
@@ -184,6 +194,12 @@ export function useWizardSave(input: UseWizardSaveInput): UseWizardSaveResult {
     const mobileResult = mobileResultBucket.current;
     if (mobileResult && !mobileResult.ok) {
       if (onlyHasIosTrustIssue(mobileResult)) {
+        if (postMobileStages.length > 0) {
+          const postPipelineResult = await runStagePipeline(postMobileStages, stageCtx, callbacks);
+          if (!postPipelineResult.ok) {
+            return;
+          }
+        }
         input.setMobileNotice("ios-trust");
         input.setPhase("done");
         return;
@@ -192,26 +208,53 @@ export function useWizardSave(input: UseWizardSaveInput): UseWizardSaveResult {
       return;
     }
 
+    if (postMobileStages.length > 0) {
+      const postPipelineResult = await runStagePipeline(postMobileStages, stageCtx, callbacks);
+      if (!postPipelineResult.ok) {
+        return;
+      }
+    }
+
+    // Stay on the completion view until the user exits (Enter or Ctrl+C). This
+    // keeps long-running launches (e.g. session mode babysitting services) and
+    // their ready info on screen instead of tearing down the fullscreen UI and
+    // leaving a blank terminal.
     input.setPhase("done");
-    setTimeout(() => input.exit(), 80);
   }
 
   async function prepareLocalModel(): Promise<boolean> {
     input.setError(null);
-    input.setPhase("pipeline");
-    input.progress.resetProgress();
-    input.progress.setStageTitle(wizardMessage(input.locale, "setupLocalModelInstalling"));
+    // Wait until Ink has actually rendered the pipeline screen before
+    // handing off to the installer (which may call spawnSync and block
+    // the event loop). The resolve callback is stored in the ref and fired
+    // from a useEffect + stdout.write('', cb) barrier in wizard.tsx, which
+    // guarantees the terminal has received the new frame.
+    await new Promise<void>((resolve) => {
+      input.onPipelineRendered.current = resolve;
+      input.setPhase("pipeline");
+      input.progress.resetProgress();
+      input.progress.setStageTitle(wizardMessage(input.locale, "setupOllamaInstalling"));
+    });
     try {
-      const nextConfig = stateToConfig(input.initialConfig, input.state, input.context);
+      const nextConfig = stateToConfig(input.initialConfig, input.state, input.context, input.projectConfig);
       await ensureLocalModelForConfig(nextConfig);
       input.progress.setStageTitle(null);
       input.setPhase("setup");
       return true;
     } catch (saveError) {
+      if (saveError instanceof Error && (saveError as Error & { cancelled?: boolean }).cancelled) {
+        input.progress.resetProgress();
+        input.setPhase("setup");
+        return false;
+      }
       input.setError(friendlySetupError(input.locale, saveError instanceof Error ? saveError.message : wizardMessage(input.locale, "setupFailed")));
       input.setPhase("error");
       return false;
     }
+  }
+
+  function requiresAiSetup(effectiveState: SetupState): boolean {
+    return shouldRequireAiSetup(input.context, effectiveState, input.projectConfig, input.initialConfig);
   }
 
   async function ensureLocalModelForConfig(nextConfig: PubwaveCliConfig): Promise<void> {
@@ -222,11 +265,21 @@ export function useWizardSave(input: UseWizardSaveInput): UseWizardSaveResult {
 
     const localInstall = await ensureSetupLocalModel(input.context, nextConfig, {
       appendProgress: input.progress.appendProgress,
+      updateLastProgress: input.progress.updateLastProgress,
       appendOutput: input.progress.appendOutput,
-      setInstallMessage: input.progress.setInstallMessage
+      setInstallMessage: input.progress.setInstallMessage,
+      resetProgress: input.progress.resetProgress,
+      setStageTitle: input.progress.setStageTitle
     });
     if (localInstall && !localInstall.ok) {
-      throw new Error(localInstall.detail);
+      const err = new Error(localInstall.detail);
+      if (localInstall.cancelled) {
+        (err as Error & { cancelled: boolean }).cancelled = true;
+      }
+      throw err;
+    }
+    if (localInstall?.ok) {
+      input.refreshLocalModelChoices();
     }
     if (localModelKey) {
       preparedLocalModelKey.current = localModelKey;
@@ -265,6 +318,7 @@ export function useWizardSave(input: UseWizardSaveInput): UseWizardSaveResult {
     };
 
     const retryCallbacks: StageRunnerCallbacks = {
+      resetStageProgress: () => input.progress.resetProgress(),
       setStageTitle: (title) => input.progress.setStageTitle(title),
       setCurrentStageId: (id) => input.setCurrentStageId(id),
       setError: (message) => input.setError(message ? friendlySetupError(input.locale, message) : null),
@@ -303,11 +357,51 @@ export function useWizardSave(input: UseWizardSaveInput): UseWizardSaveResult {
       return;
     }
 
+    // Stay on the completion view until the user exits (Enter or Ctrl+C). This
+    // keeps long-running launches (e.g. session mode babysitting services) and
+    // their ready info on screen instead of tearing down the fullscreen UI and
+    // leaving a blank terminal.
     input.setPhase("done");
-    setTimeout(() => input.exit(), 80);
   }
 
-  return { prepareLocalModel, saveAndExit, retryMobileInstall, mobileDeviceSelectionResolver };
+  async function skipMobileInstallAndContinue(): Promise<void> {
+    const effectiveState = input.state;
+    input.setError(null);
+    input.setPhase("pipeline");
+    input.progress.resetProgress();
+
+    const abortController = new AbortController();
+    const stageCtx = buildStageContext<unknown>(effectiveState, abortController.signal);
+    const hostStages = (input.context.features.setup.stages ?? []) as SetupStage<unknown>[];
+    const postMobileStages = hostStages.filter(
+      (s) => (s as { insertAfter?: string }).insertAfter === "mobile-install"
+    );
+    const callbacks: StageRunnerCallbacks = {
+      resetStageProgress: () => input.progress.resetProgress(),
+      setStageTitle: (title) => input.progress.setStageTitle(title),
+      setCurrentStageId: (id) => input.setCurrentStageId(id),
+      setError: (message) => input.setError(message ? friendlySetupError(input.locale, message) : null),
+      enterError: () => input.setPhase("error"),
+      requestStageInput: async (request: StageInputRequest) => {
+        throw new Error(`Stage input not yet wired in wizard UI: ${request.kind}/${request.id}`);
+      }
+    };
+
+    if (postMobileStages.length > 0) {
+      const postPipelineResult = await runStagePipeline(postMobileStages, stageCtx, callbacks);
+      if (!postPipelineResult.ok) {
+        return;
+      }
+    }
+
+    // Stay on the completion view until the user exits (Enter or Ctrl+C). This
+    // keeps long-running launches (e.g. session mode babysitting services) and
+    // their ready info on screen instead of tearing down the fullscreen UI and
+    // leaving a blank terminal.
+    input.setPhase("done");
+  }
+
+  return { prepareLocalModel, saveAndExit, retryMobileInstall, skipMobileInstallAndContinue, mobileDeviceSelectionResolver };
 }
 
 function configuredLocalModelKey(config: PubwaveCliConfig): string | null {

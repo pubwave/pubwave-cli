@@ -17,9 +17,8 @@ export function useWizardInput(ctx: WizardInputContext): void {
     }
 
     if (ctx.phase === "done") {
-      if (key.return) {
-        ctx.exit();
-      }
+      // Setup finished: stay on the completion screen. Only Ctrl+C exits, so a
+      // stray Enter can't tear down the screen (and its ready info) by accident.
       return;
     }
 

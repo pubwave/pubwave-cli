@@ -13,10 +13,34 @@ export function withAnimatedDots(text: string, dots: string): string {
 
 export function normalizeSetupOutputLines(rawText: string): string[] {
   return rawText
+    .replace(/\u001B\[[0-9;?]*G/g, "\r")
+    .replace(/\u001B\[[0-9;?]*K/g, "")
     .replace(/\[[0-9;?]*[ -/]*[@-~]/g, "")
     .split(/\r\n|\n|\r/g)
     .map((line) => sanitizeOutputLine(stripTrailingEta(line.trim())))
     .filter((line) => line.length > 0 && !isSetupNoiseLine(line));
+}
+
+export function latestOllamaPullStatus(rawText: string): string | null {
+  const normalized = rawText
+    .replace(/\u001B\[[0-9;?]*G/g, " ")
+    .replace(/\u001B\[[0-9;?]*K/g, " ")
+    .replace(/\[[0-9;?]*[ -/]*[@-~]/g, " ")
+    .replace(/[\u2800-\u28ff]/g, " ")
+    .replace(/\r\n|\n|\r/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return null;
+  }
+  if (/\berror\b/i.test(normalized)) {
+    return null;
+  }
+
+  const matches = normalized.match(/(?:pulling|verifying|writing|success)\b.*?(?=\s+(?:pulling|verifying|writing|success)\b|$)/gi);
+  const latest = matches?.at(-1)?.trim();
+  return latest && latest.length > 0 ? sanitizeOutputLine(latest) : null;
 }
 
 export function mergeOutputLines(currentLines: ProgressLine[], incomingLines: ProgressLine[]): ProgressLine[] {
@@ -42,6 +66,10 @@ export function setupOutputProgressKey(line: string): string | null {
   const normalized = line.trim().toLowerCase();
 
   if (/^\d+(\.\d+)?%$/.test(normalized)) {
+    return "download-progress";
+  }
+
+  if (/^#+\s+\d+(\.\d+)?%$/.test(normalized) || /^\d+(\.\d+)?%\s+#+$/.test(normalized)) {
     return "download-progress";
   }
 
@@ -75,6 +103,8 @@ export function localModelProgressText(locale: string | undefined, stage: LocalM
       return text.installOllama;
     case "start-runtime":
       return text.startRuntime;
+    case "wait-runtime":
+      return text.waitOllama;
     case "check-model":
       return `${text.checkLocalModel}: ${model}`;
     case "pull-model":
@@ -85,7 +115,11 @@ export function localModelProgressText(locale: string | undefined, stage: LocalM
 }
 
 export function localModelProgressColor(stage: LocalModelInstallProgressStage): ProgressLine["color"] {
-  return stage === "install-runtime" || stage === "pull-model" || stage === "start-runtime" ? "yellow" : "cyan";
+  return stage === "install-runtime"
+    || stage === "pull-model"
+    || stage === "start-runtime"
+    ? "yellow"
+    : "cyan";
 }
 
 export function mobileProgressText(locale: string | undefined, stage: MobileProgressStage, device?: MobileInstallableDevice): string {
@@ -134,25 +168,46 @@ function stripTrailingEta(line: string): string {
 }
 
 function sanitizeOutputLine(line: string): string {
-  return line
-    .replace(/^>>>\s+/g, "")
+  const normalized = line
     .replace(/\s+[▕▏▎▍▌▋▊▉█]+\s+/g, " ")
     .replace(/\s+[▕▏▎▍▌▋▊▉█]+(?:\s+[▕▏▎▍▌▋▊▉█]+)*\s+/g, " ")
+    .replace(/[\u2800-\u28ff]/g, "")
     .replace(/\s+\|\s+/g, " ")
     .trim();
+
+  return collapseRepeatedOllamaPullLine(normalized);
 }
 
 function isSetupNoiseLine(line: string): boolean {
   const normalized = line.trim();
 
   return (
-    /^>>> Downloading Ollama for /i.test(normalized) ||
-    /^\d+(\.\d+)?%$/.test(normalized) ||
+    /^>>>\s+Downloading Ollama for /i.test(normalized) ||
+    /^>>>\s+Removing existing Ollama installation/i.test(normalized) ||
+    /^>>>\s+Installing Ollama to /i.test(normalized) ||
+    /^>>>\s+Adding 'ollama' command to PATH/i.test(normalized) ||
     /^#+$/.test(normalized) ||
     /^[#=\-O\s]+$/.test(normalized) ||
-    /^#+\s+\d+(\.\d+)?%$/.test(normalized) ||
-    /^\d+(\.\d+)?%\s+#+$/.test(normalized)
+    /^[-=O#\s]*\d+(\.\d+)?%[-=O#\s]*$/.test(normalized) ||
+    /^#+\s+\d+\.?$/.test(normalized) ||
+    /^#+\s+\d+\.\d+%?$/.test(normalized) ||
+    /^%$/.test(normalized) ||
+    /^#+\s+\d+(\.\d+)?$/.test(normalized) ||
+    /^\d+(\.\d+)?\s+#+$/.test(normalized)
   );
+}
+
+function collapseRepeatedOllamaPullLine(line: string): string {
+  if (!line.trim().toLowerCase().startsWith("pulling ")) {
+    return line;
+  }
+
+  const segments = line
+    .split(/\s+(?=pulling\s+)/i)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  return segments.length > 0 ? segments[segments.length - 1]! : line;
 }
 
 function formatMegabytes(bytes: number): string {

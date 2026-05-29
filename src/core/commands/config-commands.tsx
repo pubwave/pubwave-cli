@@ -21,11 +21,13 @@ export function configSetCommand(): CliCommand {
     description: "Update CLI-managed configuration from flags.",
     options: ["language", "model-source", "provider", "model", "api-key", "mobile"],
     run: async (context, options) => {
-      const next = await context.config.updateCliConfig((current) => applyConfigOptions(current, options));
+      const current = await context.config.loadCliConfig();
+      const next = applyConfigOptions(current, options);
       const localInstall = await ensureConfiguredLocalModel(context, next);
       if (localInstall && !localInstall.ok) {
         return <MessageView title="Config Updated" color="red" message={localInstall.detail} />;
       }
+      await context.config.saveCliConfig(next);
       return <ConfigView title="Config Updated" items={configItems(next)} />;
     }
   };

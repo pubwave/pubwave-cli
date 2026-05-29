@@ -9,6 +9,7 @@ interface SetupStepShellProps {
   locale: WizardLocale;
   kind?: "choice" | "input";
   title: string;
+  titleColor?: string;
   hint?: string;
   isFirstStep: boolean;
   isLastStep: boolean;
@@ -30,6 +31,7 @@ export function SetupStepShell(input: SetupStepShellProps): React.ReactElement {
     locale,
     kind = "choice",
     title,
+    titleColor,
     hint,
     isFirstStep,
     stepIndex,
@@ -50,12 +52,12 @@ export function SetupStepShell(input: SetupStepShellProps): React.ReactElement {
   ].join(", ");
 
   return (
-    <Section title={wizardMessage(locale, "firstRunTitle")} bannerTitle={appName} width={width} height={height} bordered={false} showTitle={false}>
+    <Section title={wizardMessage(locale, "firstRunTitle")} bannerTitle={appName} width={width} height={height} bordered={false} showTitle={false} compactBanner={compactMode}>
       <Box flexShrink={0}>
         <Text color="cyanBright">{wizardMessage(locale, "stepLabel")} {stepIndex + 1} / {stepsLength}</Text>
       </Box>
       <Box marginTop={contentSpacing} flexDirection="column" flexShrink={0}>
-        <Text>{title}</Text>
+        <Text color={titleColor}>{title}</Text>
         {hint ? <Text color="gray">{hint}</Text> : null}
       </Box>
       <Box marginTop={contentSpacing} flexDirection="column" flexGrow={1} flexShrink={1}>

@@ -54,13 +54,18 @@ function noticeGuideLines(lines: string[]): string[] {
       return [line];
     }
 
+    // English-style guides put the actionable instruction before a comma and
+    // the "press Enter to recheck" hint after it; on this screen Enter is not
+    // an active action so we drop that tail. Locales whose translation has no
+    // comma (ja/ko/es/fr/de/pt) keep the whole line rather than lose all the
+    // actionable content.
     const separatorIndex = firstSeparatorIndex(line);
     if (separatorIndex < 0) {
-      return [];
+      return [line];
     }
 
     const beforeRetry = line.slice(0, separatorIndex).trim();
-    return beforeRetry.length > 0 ? [beforeRetry] : [];
+    return beforeRetry.length > 0 ? [beforeRetry] : [line];
   });
 }
 

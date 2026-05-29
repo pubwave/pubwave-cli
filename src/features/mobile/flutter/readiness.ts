@@ -35,7 +35,7 @@ export async function inspectFlutterReadiness(
   }
 
   await callbacks?.onStep?.("devices");
-  const devices = inspectFlutterDevices(flutterCommand)
+  const devices = inspectFlutterDevices(flutterCommand, featureConfig.physicalDevicesOnly ?? true)
     .filter((device) => !platform || device.platform === platform);
 
   if (devices.length === 0) {
