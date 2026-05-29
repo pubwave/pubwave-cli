@@ -45,6 +45,10 @@ export function SetupWizard(props: {
   const [mobileDeviceChoiceState, setMobileDeviceChoiceState] = useState<MobileDeviceChoiceState | null>(null);
   const [mobileDeviceCursorIndex, setMobileDeviceCursorIndex] = useState(0);
   const [currentStageId, setCurrentStageId] = useState<string | null>(null);
+  // The merged project config produced + persisted during save, so the
+  // completion view shows the values the wizard just wrote. Falls back to the
+  // pre-wizard project config until save has run.
+  const [savedProjectConfig, setSavedProjectConfig] = useState<unknown>(props.projectConfig);
   const { choices: localModelChoices, refresh: refreshLocalModelChoices } = useLocalModelChoices(props.context, state.modelSource);
   const progress = useSetupProgressState();
   const installedLocalDefaultApplied = useRef(false);
@@ -174,6 +178,7 @@ export function SetupWizard(props: {
     projectConfig: props.projectConfig,
     state,
     setState,
+    setSavedProjectConfig,
     locale,
     progress,
     setPhase,
@@ -224,6 +229,7 @@ export function SetupWizard(props: {
       context={props.context}
       initialConfig={props.initialConfig}
       projectConfig={props.projectConfig}
+      savedProjectConfig={savedProjectConfig}
       phase={phase}
       state={state}
       locale={locale}

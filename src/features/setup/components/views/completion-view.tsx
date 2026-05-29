@@ -14,6 +14,7 @@ export function SetupCompletionView(props: {
   config: PubwaveCliConfig;
   initialConfig: PubwaveCliConfig;
   projectConfig: unknown;
+  savedProjectConfig: unknown;
   compactMode: boolean;
   locale: WizardLocale;
   mobileNotice: MobileRetryGuideKind | null;
@@ -25,11 +26,15 @@ export function SetupCompletionView(props: {
 }): React.ReactElement {
   // Resolve the same host-provided config rows the saved view uses, so the
   // completion screen shows the app's full config instead of only the generic
-  // language/model rows.
+  // language/model rows. On this screen the "current" config is what the user
+  // just chose, so feed host rows the effective cli config (which carries the
+  // chosen language) and the merged/saved project config (which carries the
+  // values the wizard just wrote) — exactly what the re-launch saved view sees.
+  // This keeps both screens consistent without the host knowing the difference.
   const savedViewCtx: SavedViewContext = {
     context: props.context,
-    initialConfig: props.initialConfig,
-    projectConfig: props.projectConfig as PubwaveCliConfig
+    initialConfig: props.config,
+    projectConfig: (props.savedProjectConfig ?? props.projectConfig) as PubwaveCliConfig
   };
   const items = setupConfigItems(
     props.config,

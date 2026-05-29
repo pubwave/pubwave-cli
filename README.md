@@ -5,6 +5,10 @@ Pubwave CLI is a reusable command-line toolkit for AI-enabled projects that need
 It gives your project a polished terminal UI for language selection, cloud or local model setup, Ollama model management, config persistence, and optional Flutter mobile installation.
 
 ```bash
+# Use the `pubwave` command directly (global install)
+npm install -g @pubwave/cli
+
+# Or add it to a project to build your own CLI on top of it
 npm install @pubwave/cli
 ```
 
@@ -23,11 +27,14 @@ Requires Node.js 20 or newer.
 
 ## Two Ways To Use It
 
-Use the published command directly:
+Use the published command directly (after a global install, or via `npx`):
 
 ```bash
 pubwave help
 pubwave setup
+
+# Without installing globally:
+npx @pubwave/cli help
 ```
 
 Or create your own project CLI:
@@ -76,31 +83,31 @@ The setup wizard is the main user experience. It turns a messy first-run setup i
 
 The user picks the default language for the CLI and generated output.
 
-<img src="assets/image-cli/choose-language.png" alt="Choose language" width="900">
+<img src="https://raw.githubusercontent.com/pubwave/pubwave-cli/main/assets/image-cli/choose-language.png" alt="Choose language" width="900">
 
 ### 2. Choose A Model Source
 
 The user decides whether the project should use a cloud model provider or a local model on this machine.
 
-<img src="assets/image-cli/choose-model-source.png" alt="Choose model source" width="900">
+<img src="https://raw.githubusercontent.com/pubwave/pubwave-cli/main/assets/image-cli/choose-model-source.png" alt="Choose model source" width="900">
 
 ### 3. Choose A Local Model
 
 In local mode, Pubwave CLI shows installed Ollama models first, then recommended models that can be pulled and verified.
 
-<img src="assets/image-cli/choose-local-model.png" alt="Choose local model" width="900">
+<img src="https://raw.githubusercontent.com/pubwave/pubwave-cli/main/assets/image-cli/choose-local-model.png" alt="Choose local model" width="900">
 
 ### 4. Enable Mobile Setup
 
 If the host project provides a Flutter app, the wizard can ask whether mobile setup should be enabled.
 
-<img src="assets/image-cli/enable-mobile-setup.png" alt="Enable mobile setup" width="900">
+<img src="https://raw.githubusercontent.com/pubwave/pubwave-cli/main/assets/image-cli/enable-mobile-setup.png" alt="Enable mobile setup" width="900">
 
 ### 5. Choose Mobile Devices
 
 When multiple supported phones are connected, the user can choose exactly which devices should receive the app.
 
-<img src="assets/image-cli/choose-mobile-devices.png" alt="Choose mobile devices" width="900">
+<img src="https://raw.githubusercontent.com/pubwave/pubwave-cli/main/assets/image-cli/choose-mobile-devices.png" alt="Choose mobile devices" width="900">
 
 Keyboard controls:
 

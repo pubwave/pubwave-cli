@@ -28,6 +28,10 @@ interface UseWizardSaveInput {
   projectConfig: unknown;
   state: SetupState;
   setState: React.Dispatch<React.SetStateAction<SetupState>>;
+  // Receives the merged project config once it has been persisted, so the
+  // completion view can show the values the wizard just wrote (not the
+  // pre-wizard project config).
+  setSavedProjectConfig: React.Dispatch<React.SetStateAction<unknown>>;
   locale: WizardLocale;
   progress: SetupProgressState;
   setPhase: React.Dispatch<React.SetStateAction<SetupPhase>>;
@@ -127,6 +131,7 @@ export function useWizardSave(input: UseWizardSaveInput): UseWizardSaveResult {
 
         const merged = await ctx.config.mergeCliConfig(cliConfig, projectConfig);
         await ctx.config.saveProjectConfig(merged);
+        input.setSavedProjectConfig(merged);
         return { status: "ok" };
       }
     };
