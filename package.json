@@ -1,6 +1,6 @@
 {
   "name": "@pubwave/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Composable CLI toolkit for language, AI model, local model, and mobile app setup flows.",
   "license": "MIT",
   "type": "module",

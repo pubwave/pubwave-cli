@@ -1,0 +1,39 @@
+name: Release
+
+# Runs after the CI workflow succeeds on main. CI publishes to npm on a version
+# bump; this workflow then tags that commit and creates a GitHub Release with
+# auto-generated notes. It is idempotent: it acts only when the tag for the
+# current package version does not exist yet (i.e. right after a version bump).
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  tag-and-release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Tag and create GitHub Release for a new version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists (no version bump); nothing to release."
+            exit 0
+          fi
+
+          echo "Tagging and releasing $TAG."
+          git tag "$TAG"
+          git push origin "$TAG"
+          gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag

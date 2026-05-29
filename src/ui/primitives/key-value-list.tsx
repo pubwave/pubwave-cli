@@ -14,7 +14,7 @@ export function KeyValueList(props: { items: KeyValueItem[] }): React.ReactEleme
         .filter(({ item }) => item.value != null)
         .map(({ item, index }) => (
           <Box key={`${item.label}-${index}`}>
-            <Box width={18}>
+            <Box width={20} marginRight={2}>
               <Text color="gray">{item.label}</Text>
             </Box>
             <Text>{String(item.value)}</Text>
