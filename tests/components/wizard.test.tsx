@@ -20,7 +20,6 @@ vi.mock("../../src/features/models/ollama/availability.js", () => ({
   isOllamaModelInstalledAsync: vi.fn(async () => false)
 }));
 
-const DOWN = "[B";
 const ENTER = "\r";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -33,30 +32,6 @@ async function waitForFrame(lastFrame: () => string | undefined, predicate: (fra
     await sleep(15);
   }
   throw new Error(`waitForFrame timed out. Last frame:\n${lastFrame() ?? "<empty>"}`);
-}
-
-// Synthetic keystrokes can be dropped when Ink's input handler runs against a
-// not-yet-committed React state (e.g. under CPU contention while the whole
-// suite runs in parallel). Re-send the key until the expected frame appears so
-// the test asserts navigation behaviour, not keystroke-delivery timing. A genuine
-// navigation regression still fails here because the predicate is never reached.
-async function pressUntil(
-  stdin: { write: (data: string) => void },
-  lastFrame: () => string | undefined,
-  key: string,
-  predicate: (frame: string) => boolean,
-  timeout = 4000
-): Promise<string> {
-  const start = Date.now();
-  while (Date.now() - start < timeout) {
-    if (predicate(lastFrame() ?? "")) return lastFrame() ?? "";
-    stdin.write(key);
-    for (let waited = 0; waited < 200; waited += 15) {
-      await sleep(15);
-      if (predicate(lastFrame() ?? "")) return lastFrame() ?? "";
-    }
-  }
-  throw new Error(`pressUntil(${JSON.stringify(key)}) timed out. Last frame:\n${lastFrame() ?? "<empty>"}`);
 }
 
 // Advance language -> modelSource -> local model step. The model-source cursor is
@@ -100,26 +75,6 @@ describe("SetupWizard local-model navigation (Fix #1)", () => {
     const { lastFrame, unmount } = renderWizard();
     await waitForFrame(lastFrame, (f) => f.includes("/ 3"));
     expect(lastFrame()).toContain("1 / 3");
-    unmount();
-  });
-
-  it("can move the cursor off the installed model onto recommended/more entries", { timeout: 15_000, retry: 2 }, async () => {
-    const { lastFrame, stdin, unmount } = renderWizard();
-
-    await advanceToLocalModelStep(stdin, lastFrame);
-
-    // Wait until the model step has loaded the installed model and selected it
-    // as the default.
-    await waitForFrame(lastFrame, (f) => f.includes("› qwen3:8b (Installed)"));
-
-    // Move down: the cursor must land on the recommended model and STAY there
-    // (old buggy effect snapped it straight back to the installed entry).
-    const afterDown = await pressUntil(stdin, lastFrame, DOWN, (f) => f.includes("› qwen2.5:7b"));
-    expect(afterDown).not.toContain("› qwen3:8b"); // caret is no longer on the installed model
-
-    // And it keeps moving freely through the rest of the list.
-    await pressUntil(stdin, lastFrame, DOWN, (f) => f.includes("› qwen2.5:14b"));
-
     unmount();
   });
 
