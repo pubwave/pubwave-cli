@@ -166,9 +166,11 @@ async function runFlutterOnDevice(
 
   const result: DeviceRunResult = {
     device,
-    label: [flutterCommand, ...runArgs].join(" "),
+    // Show the device as the step label (not the full flutter command, which is
+    // long and noisy on the completion screen).
+    label: device.label,
     ok: runResult.ok,
-    detail: runResult.ok ? `${device.label}: Mobile app launched.` : (runResult.stderr || runResult.stdout || `${device.label}: Mobile launch failed.`)
+    detail: runResult.ok ? "Mobile app launched." : (runResult.stderr || runResult.stdout || "Mobile launch failed.")
   };
   await input.callbacks?.onDeviceComplete?.(result);
   return result;

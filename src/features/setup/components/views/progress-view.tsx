@@ -28,17 +28,42 @@ export function SetupProgressView(props: {
   stepIndex: number;
   stepsLength: number;
 }): React.ReactElement {
-  const visibleProgressLines = props.progressLines.slice(-6);
   const isError = props.statusColor === "red";
   const nonPullOutputLines = props.outputLines.filter((line) =>
     !setupOutputProgressKey(line.text)?.startsWith("pulling:"),
   );
-  const visibleOutputLines = isError
-    ? []
-    : nonPullOutputLines.slice(-3);
-  const visibleDeviceStates = isError
-    ? []
-    : props.deviceInstallStates.slice(-2);
+
+  // Height budget so the device being installed (its name/header) is never
+  // pushed off-screen on short terminals. Reserve device headers + the active
+  // step first, then fill remaining rows with verbose output (device output
+  // first), trimming completed steps and `│` output lines before anything that
+  // identifies the current action. Chrome is overestimated on purpose so we
+  // under-fill rather than overflow (Ink clips the bottom, i.e. the devices).
+  const allSteps = props.progressLines.slice(-6);
+  const allDeviceStates = isError ? [] : props.deviceInstallStates.slice(-2);
+  const chromeRows = props.compactMode ? 9 : 13;
+  const contentRows = Math.max(2, props.height - chromeRows);
+
+  const deviceReservedRows = allDeviceStates.reduce((rows, state) => rows + 1 + (state.detail ? 1 : 0), 0);
+  const activeStepRows = allSteps.length > 0 ? 1 : 0;
+  let outputBudget = Math.max(0, contentRows - deviceReservedRows - activeStepRows);
+
+  const completedStepCount = Math.max(0, allSteps.length - 1);
+  const shownCompletedSteps = Math.min(completedStepCount, outputBudget);
+  outputBudget -= shownCompletedSteps;
+  const visibleProgressLines = allSteps.slice(allSteps.length - (shownCompletedSteps + activeStepRows));
+
+  const deviceOutputCounts = allDeviceStates.map((state) => {
+    const count = Math.min(3, state.outputLines.length, outputBudget);
+    outputBudget -= count;
+    return count;
+  });
+
+  const topOutputCount = isError ? 0 : Math.min(3, nonPullOutputLines.length, outputBudget);
+  const visibleOutputLines = topOutputCount > 0
+    ? nonPullOutputLines.slice(nonPullOutputLines.length - topOutputCount)
+    : [];
+  const visibleDeviceStates = allDeviceStates;
 
   const blocks: React.ReactNode[] = [];
 
@@ -76,7 +101,8 @@ export function SetupProgressView(props: {
     );
   }
 
-  for (const state of visibleDeviceStates) {
+  visibleDeviceStates.forEach((state, deviceIndex) => {
+    const deviceOutputCount = deviceOutputCounts[deviceIndex] ?? 0;
     blocks.push(
       <Box key={`device-${state.deviceId}`} flexDirection="column">
         <Text
@@ -95,7 +121,7 @@ export function SetupProgressView(props: {
               : "› "}
           {state.label}
         </Text>
-        {state.outputLines.slice(-3).map((line, index) => (
+        {state.outputLines.slice(state.outputLines.length - deviceOutputCount).map((line, index) => (
           <Text key={`${state.deviceId}-${index}`} color={line.color ?? "cyan"}>
             │ {line.text}
           </Text>
@@ -103,7 +129,7 @@ export function SetupProgressView(props: {
         {state.detail ? <Text color="red">│ {state.detail}</Text> : null}
       </Box>,
     );
-  }
+  });
 
   if (props.installMessage && !isError) {
     blocks.push(
