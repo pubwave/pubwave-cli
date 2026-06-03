@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { createPubwaveCli, jsonConfig } from "../src/index.js";
 
+// Set the path to your Flutter mobile app project
 const techbriefMobileDir = fileURLToPath(
   new URL("../../techbrief/apps/mobile/", import.meta.url),
 );
