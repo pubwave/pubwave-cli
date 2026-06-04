@@ -52,6 +52,7 @@ export const koCatalog: WizardLocaleCatalog = {
     modelSource: "모델 소스",
     aiProvider: "선택한 제공자",
     aiModel: "선택한 모델",
+    notConfigured: "설정 안 됨",
     mobileInstallEnabledStatus: "활성화됨",
     mobileInstallSkippedStatus: "비활성화됨"
   },

@@ -116,7 +116,8 @@ export type MessageKey =
   | "aiModel"
   | "mobileInstallStatus"
   | "mobileInstallEnabledStatus"
-  | "mobileInstallSkippedStatus";
+  | "mobileInstallSkippedStatus"
+  | "notConfigured";
 
 export interface WizardLocaleCatalog {
   messages: Record<MessageKey, string>;

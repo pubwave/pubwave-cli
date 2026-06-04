@@ -50,6 +50,7 @@ export const zhCnCatalog: WizardLocaleCatalog = {
     modelSource: "模型来源",
     aiProvider: "已选服务商",
     aiModel: "已选模型",
+    notConfigured: "未配置",
     mobileInstallStatus: "移动端",
     mobileInstallEnabledStatus: "已启用",
     mobileInstallSkippedStatus: "未启用"

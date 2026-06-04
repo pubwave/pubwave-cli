@@ -23,11 +23,17 @@ export function setupConfigItems(
   includeMobile: boolean,
   additionalRows?: SavedViewRow[]
 ): KeyValueItem[] {
+  // AI is "configured" only once a provider and model are chosen. When it is not
+  // (e.g. an English reader that needs no translation), keep the rows for a
+  // consistent layout but show them as "not configured" instead of a stale
+  // default or a blank value.
+  const aiConfigured = Boolean(config.ai?.provider && config.ai?.model);
+  const notConfigured = wizardMessage(locale, "notConfigured");
   const items: KeyValueItem[] = [
     { label: wizardMessage(locale, "defaultLanguage"), value: config.language },
-    { label: wizardMessage(locale, "modelSource"), value: config.ai?.modelSource },
-    { label: wizardMessage(locale, "aiProvider"), value: config.ai?.provider },
-    { label: wizardMessage(locale, "aiModel"), value: config.ai?.model }
+    { label: wizardMessage(locale, "modelSource"), value: aiConfigured ? config.ai?.modelSource : notConfigured },
+    { label: wizardMessage(locale, "aiProvider"), value: aiConfigured ? config.ai?.provider : notConfigured },
+    { label: wizardMessage(locale, "aiModel"), value: aiConfigured ? config.ai?.model : notConfigured }
   ];
 
   if (includeMobile) {

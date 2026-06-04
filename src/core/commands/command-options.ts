@@ -76,11 +76,15 @@ export function buildSetupConfigFromOptions(
 }
 
 export function configItems(config: PubwaveCliConfig) {
+  // Show "Not configured" when AI hasn't been set up (no provider/model) instead
+  // of a stale default or a blank value.
+  const aiConfigured = Boolean(config.ai?.provider && config.ai?.model);
+  const notConfigured = "Not configured";
   return [
     { label: "Language", value: config.language },
-    { label: "Model source", value: config.ai?.modelSource },
-    { label: "Provider", value: config.ai?.provider },
-    { label: "Model", value: config.ai?.model },
+    { label: "Model source", value: aiConfigured ? config.ai?.modelSource : notConfigured },
+    { label: "Provider", value: aiConfigured ? config.ai?.provider : notConfigured },
+    { label: "Model", value: aiConfigured ? config.ai?.model : notConfigured },
     { label: "Mobile enabled", value: config.mobile?.enabled }
   ];
 }

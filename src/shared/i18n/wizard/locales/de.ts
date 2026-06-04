@@ -52,6 +52,7 @@ export const deCatalog: WizardLocaleCatalog = {
     modelSource: "Modellquelle",
     aiProvider: "Ausgewählter Anbieter",
     aiModel: "Ausgewähltes Modell",
+    notConfigured: "Nicht konfiguriert",
     mobileInstallEnabledStatus: "Aktiviert",
     mobileInstallSkippedStatus: "Nicht aktiviert"
   },
