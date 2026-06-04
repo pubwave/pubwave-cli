@@ -2,6 +2,14 @@
   "name": "@pubwave/cli",
   "version": "0.1.5",
   "description": "Composable CLI toolkit for language, AI model, local model, and mobile app setup flows.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pubwave/pubwave-cli.git"
+  },
+  "homepage": "https://github.com/pubwave/pubwave-cli#readme",
+  "bugs": {
+    "url": "https://github.com/pubwave/pubwave-cli/issues"
+  },
   "keywords": [
     "cli",
     "pubwave",
