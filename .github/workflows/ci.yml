@@ -3,12 +3,30 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
+
+# Never run two CI passes for the same ref at once: queue them so a publish is
+# never raced (which previously caused duplicate npm provenance / 409 errors).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  verify:
+  # Single job: install + verify + (on main) publish — one `npm ci` and one build.
+  ci:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -16,6 +34,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
+          registry-url: https://registry.npmjs.org
           cache: npm
 
       - name: Install dependencies
@@ -33,33 +52,15 @@ jobs:
       - name: Build
         run: npm run build
 
-  publish:
-    # Only publish from main (not on PRs), and only after verify passes.
-    needs: verify
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          registry-url: https://registry.npmjs.org
-          cache: npm
-
+      # ---- Publish (only on a push to main) ----
       # Trusted publishing (OIDC) requires npm >= 11.5.1; Node 20 ships npm 10.x.
       - name: Upgrade npm for trusted publishing
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: npm install -g npm@latest
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Check if version already published
         id: check
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           NAME=$(node -p "require('./package.json').name")
           LOCAL=$(node -p "require('./package.json').version")
@@ -70,17 +71,10 @@ jobs:
           else
             echo "New version $LOCAL detected, will publish."
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            echo "version=$LOCAL" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build
-        if: steps.check.outputs.should_publish == 'true'
-        run: npm run build
-
-      # Authenticated via OIDC trusted publishing (no token). The id-token:write
-      # permission lets npm exchange a short-lived GitHub OIDC token for publish
-      # rights, and provenance is attached automatically.
-      # Tagging + GitHub Release are handled by release.yml after CI succeeds.
+      # Built above; prepack rebuilds on publish. Authenticated via OIDC (no
+      # token). Tagging + GitHub Release are handled by release.yml.
       - name: Publish to npm
-        if: steps.check.outputs.should_publish == 'true'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check.outputs.should_publish == 'true'
         run: npm publish --access public
