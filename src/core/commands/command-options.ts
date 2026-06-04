@@ -1,4 +1,5 @@
 import type { CliCommandContext, PubwaveCliConfig } from "../types.js";
+import { maskApiKey } from "../../features/setup/presentation/config-items.js";
 
 export function stringOption(value: string | boolean | undefined): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -80,11 +81,13 @@ export function configItems(config: PubwaveCliConfig) {
   // of a stale default or a blank value.
   const aiConfigured = Boolean(config.ai?.provider && config.ai?.model);
   const notConfigured = "Not configured";
+  const apiKey = config.ai?.apiKey;
   return [
     { label: "Language", value: config.language },
     { label: "Model source", value: aiConfigured ? config.ai?.modelSource : notConfigured },
     { label: "Provider", value: aiConfigured ? config.ai?.provider : notConfigured },
     { label: "Model", value: aiConfigured ? config.ai?.model : notConfigured },
+    { label: "API key", value: aiConfigured && apiKey ? maskApiKey(apiKey) : notConfigured },
     { label: "Mobile enabled", value: config.mobile?.enabled }
   ];
 }

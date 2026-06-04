@@ -43,6 +43,7 @@ export const zhTwCatalog: WizardLocaleCatalog = {
     defaultLanguage: "預設語言",
     aiProvider: "已選服務商",
     aiModel: "已選模型",
+    aiApiKey: "API 金鑰",
     notConfigured: "未設定",
     mobileInstallEnabledStatus: "已啟用",
     mobileInstallSkippedStatus: "未啟用"

@@ -17,6 +17,13 @@ export function resolveSavedViewRows<TProjectConfig>(
   return typeof rows === "function" ? rows(ctx) : rows;
 }
 
+// Mask an API key for display: only the last 3 characters are shown, e.g.
+// "******sdf". Never print the full secret in a summary/config view.
+export function maskApiKey(key: string): string {
+  const tail = key.slice(-3);
+  return `${"*".repeat(6)}${tail}`;
+}
+
 export function setupConfigItems(
   config: PubwaveCliConfig,
   locale: WizardLocale,
@@ -29,11 +36,13 @@ export function setupConfigItems(
   // default or a blank value.
   const aiConfigured = Boolean(config.ai?.provider && config.ai?.model);
   const notConfigured = wizardMessage(locale, "notConfigured");
+  const apiKey = config.ai?.apiKey;
   const items: KeyValueItem[] = [
     { label: wizardMessage(locale, "defaultLanguage"), value: config.language },
     { label: wizardMessage(locale, "modelSource"), value: aiConfigured ? config.ai?.modelSource : notConfigured },
     { label: wizardMessage(locale, "aiProvider"), value: aiConfigured ? config.ai?.provider : notConfigured },
-    { label: wizardMessage(locale, "aiModel"), value: aiConfigured ? config.ai?.model : notConfigured }
+    { label: wizardMessage(locale, "aiModel"), value: aiConfigured ? config.ai?.model : notConfigured },
+    { label: wizardMessage(locale, "aiApiKey"), value: aiConfigured && apiKey ? maskApiKey(apiKey) : notConfigured }
   ];
 
   if (includeMobile) {

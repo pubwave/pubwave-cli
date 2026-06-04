@@ -50,6 +50,7 @@ export const enCatalog: WizardLocaleCatalog = {
     modelSource: "Model source",
     aiProvider: "Selected provider",
     aiModel: "Selected model",
+    aiApiKey: "API key",
     notConfigured: "Not configured",
     mobileInstallStatus: "Mobile app",
     mobileInstallEnabledStatus: "Enabled",

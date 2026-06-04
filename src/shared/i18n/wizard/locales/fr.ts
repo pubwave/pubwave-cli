@@ -52,6 +52,7 @@ export const frCatalog: WizardLocaleCatalog = {
     modelSource: "Source du modèle",
     aiProvider: "Fournisseur choisi",
     aiModel: "Modèle choisi",
+    aiApiKey: "Clé API",
     notConfigured: "Non configuré",
     mobileInstallEnabledStatus: "Activé",
     mobileInstallSkippedStatus: "Non activé"

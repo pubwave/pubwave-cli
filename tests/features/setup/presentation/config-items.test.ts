@@ -8,28 +8,36 @@ const config = {
   ai: { modelSource: "cloud", provider: "openai", model: "gpt-5.2" }
 } as PubwaveCliConfig;
 
+const notConfigured = wizardMessage("en", "notConfigured");
+
 describe("setupConfigItems", () => {
-  it("lists the four core rows in order", () => {
+  it("lists the five core rows in order (api key not configured without a key)", () => {
     const items = setupConfigItems(config, "en", false);
-    expect(items).toHaveLength(4);
-    expect(items.map((i) => i.value)).toEqual(["en", "cloud", "openai", "gpt-5.2"]);
+    expect(items).toHaveLength(5);
+    expect(items.map((i) => i.value)).toEqual(["en", "cloud", "openai", "gpt-5.2", notConfigured]);
+  });
+
+  it("masks the api key (only the last 3 chars) when set", () => {
+    const withKey = { ...config, ai: { ...config.ai, apiKey: "sk-secret-xyz" } } as PubwaveCliConfig;
+    const items = setupConfigItems(withKey, "en", false);
+    expect(items[4]!.value).toBe("******xyz");
   });
 
   it("adds a mobile status row when mobile is enabled in the config", () => {
     const items = setupConfigItems({ ...config, mobile: { enabled: true } } as PubwaveCliConfig, "en", true);
-    expect(items).toHaveLength(5);
-    expect(items[4]!.value).toBe(wizardMessage("en", "mobileInstallEnabledStatus"));
+    expect(items).toHaveLength(6);
+    expect(items[5]!.value).toBe(wizardMessage("en", "mobileInstallEnabledStatus"));
   });
 
   it("shows the skipped status when mobile is included but disabled", () => {
     const items = setupConfigItems(config, "en", true);
-    expect(items[4]!.value).toBe(wizardMessage("en", "mobileInstallSkippedStatus"));
+    expect(items[5]!.value).toBe(wizardMessage("en", "mobileInstallSkippedStatus"));
   });
 
   it("appends host-provided additional rows", () => {
     const items = setupConfigItems(config, "en", false, [{ label: "Workspace", value: "/repo" }]);
-    expect(items).toHaveLength(5);
-    expect(items[4]).toEqual({ label: "Workspace", value: "/repo" });
+    expect(items).toHaveLength(6);
+    expect(items[5]).toEqual({ label: "Workspace", value: "/repo" });
   });
 });
 

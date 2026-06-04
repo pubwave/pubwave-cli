@@ -53,6 +53,7 @@ export const jaCatalog: WizardLocaleCatalog = {
     modelSource: "モデル取得元",
     aiProvider: "選択したプロバイダー",
     aiModel: "選択したモデル",
+    aiApiKey: "API キー",
     notConfigured: "未設定",
     mobileInstallStatus: "モバイルアプリ",
     mobileInstallEnabledStatus: "有効",

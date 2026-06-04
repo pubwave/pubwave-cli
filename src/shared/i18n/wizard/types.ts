@@ -114,6 +114,7 @@ export type MessageKey =
   | "modelSource"
   | "aiProvider"
   | "aiModel"
+  | "aiApiKey"
   | "mobileInstallStatus"
   | "mobileInstallEnabledStatus"
   | "mobileInstallSkippedStatus"
