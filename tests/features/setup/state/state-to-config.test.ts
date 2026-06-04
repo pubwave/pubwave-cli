@@ -17,10 +17,13 @@ describe("stateToConfig", () => {
     expect(next.ai!.apiKey).toBe("");
   });
 
-  it("omits AI settings when shouldRequireAiSetup is false", () => {
+  it("clears AI settings when shouldRequireAiSetup is false", () => {
     const ctx = makeContext({ setup: { shouldRequireAiSetup: () => false } });
-    const next = stateToConfig({} as PubwaveCliConfig, makeState(), ctx, {});
-    expect(next.ai).toBeUndefined();
+    // Start from a previously-configured AI block to prove re-running setup with
+    // a no-AI language wipes the stale provider/model/apiKey.
+    const current = { ai: { modelSource: "cloud", provider: "openai", model: "gpt-5", apiKey: "sk" } } as PubwaveCliConfig;
+    const next = stateToConfig(current, makeState(), ctx, {});
+    expect(next.ai).toMatchObject({ provider: "", model: "", apiKey: "" });
     expect(next.language).toBe("en");
   });
 
